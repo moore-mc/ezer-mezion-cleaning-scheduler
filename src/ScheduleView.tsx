@@ -1,0 +1,205 @@
+import { useMemo, useState } from 'react'
+import type { AppData, Job, Override, Placement, ScheduleResult } from './types'
+import { DAY, DAY_NAMES, addDays, fmt, overrideKey } from './scheduler'
+import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
+
+const T0 = 5 * 60 // timeline starts 05:00
+const T1 = 24 * 60
+const PX = 96 // px per hour
+const x = (min: number) => ((min - T0) / 60) * PX
+
+const KIND_LABEL = { routine: 'שוטף', activity: 'אחרי פעילות', event: 'אירוע מיוחד', manual: 'ידני' }
+
+interface Props {
+  data: AppData
+  weekStart: string
+  result: ScheduleResult
+  setOverride: (jobId: string, o: Override | null) => void
+}
+
+export default function ScheduleView({ data, weekStart, result, setOverride }: Props) {
+  const today = new Date().toISOString().slice(0, 10)
+  const [day, setDay] = useState(() => {
+    const i = Math.round((Date.parse(today) - Date.parse(weekStart)) / 86400000)
+    return i >= 0 && i < 7 ? i : 0
+  })
+  const [selected, setSelected] = useState<string | null>(null)
+
+  const jobById = useMemo(() => new Map(result.jobs.map((j) => [j.id, j])), [result])
+  const spaceName = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? '—'
+  const closed = data.settings.closedDates.includes(addDays(weekStart, day))
+
+  const perDay = DAY_NAMES.map((_, d) => ({
+    placed: result.placements.filter((p) => Math.floor(p.start / DAY) === d).length,
+    bad: result.unscheduled.filter((u) => Math.floor(u.job.earliest / DAY) === d).length,
+  }))
+
+  const selJob = selected ? jobById.get(selected) ?? result.skipped.find((j) => j.id === selected) : undefined
+  const selPlacement = result.placements.find((p) => p.jobId === selected)
+  const selUnsched = result.unscheduled.find((u) => u.job.id === selected)
+
+  const overridden = Object.entries(data.overrides)
+    .filter(([k]) => k.startsWith(weekStart + '|'))
+    .map(([k, o]) => ({ id: k.slice(weekStart.length + 1), o }))
+
+  return (
+    <div className="sched">
+      <div className="daytabs">
+        {DAY_NAMES.map((n, d) => {
+          const isClosed = data.settings.closedDates.includes(addDays(weekStart, d))
+          return (
+            <button key={d} className={`daytab ${d === day ? 'on' : ''} ${isClosed ? 'closed' : ''}`} onClick={() => setDay(d)}>
+              <b>{n}</b>
+              <small>{addDays(weekStart, d).slice(8)}/{addDays(weekStart, d).slice(5, 7)}</small>
+              <span className="dots">
+                {isClosed ? 'סגור' : <>{perDay[d].placed} משימות{perDay[d].bad > 0 && <em className="bad"> · {perDay[d].bad} ללא שיבוץ</em>}</>}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <Card title={`לוח יומי – יום ${DAY_NAMES[day]}`} actions={<Legend />}>
+        {closed ? <p className="muted">היום מסומן כיום סגור (חג / ללא עבודה).</p> : (
+          <div className="tl-scroll">
+            <div className="tl" style={{ width: x(T1) + 120, ['--px' as string]: `${PX}px` }}>
+              <div className="tl-head" style={{ marginRight: 120 }}>
+                {Array.from({ length: (T1 - T0) / 60 }, (_, i) => (
+                  <span key={i} style={{ right: i * PX, width: PX }}>{String(5 + i).padStart(2, '0')}:00</span>
+                ))}
+              </div>
+              {data.workers.map((w) => {
+                const shift = w.shifts[day]
+                const absent = w.absences.includes(addDays(weekStart, day))
+                const mine = result.placements.filter((p) => p.workerId === w.id && Math.floor(p.start / DAY) === day)
+                return (
+                  <div className="lane" key={w.id}>
+                    <div className="lane-name"><i style={{ background: w.color }} />{w.name}
+                      <small>{absent ? 'נעדר' : shift ? `${fmt(shift.start)}–${fmt(shift.end)}` : 'חופש'}</small></div>
+                    <div className="lane-track" style={{ width: x(T1) }}>
+                      {shift && !absent && <div className="shift" style={{ right: x(shift.start), width: x(shift.end) - x(shift.start) }} />}
+                      {mine.map((p) => {
+                        const j = jobById.get(p.jobId)!
+                        const s = p.start - day * DAY
+                        return (
+                          <button key={p.jobId} className={`blk k-${j.kind} ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`}
+                            style={{ right: x(s), width: Math.max(18, x(s + j.duration) - x(s) - 2), borderColor: w.color }}
+                            title={`${spaceName(j.spaceId)} · ${j.label}\n${fmt(p.start)}–${fmt(p.end)}`}
+                            onClick={() => setSelected(p.jobId)}>
+                            <b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b>
+                            <small>{fmt(p.start)} · {j.label}</small>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <div className="two">
+        <Card title={`ללא שיבוץ (${result.unscheduled.length})`}>
+          {result.unscheduled.length === 0 ? <p className="ok-note">✓ כל המשימות שובצו בהצלחה</p> : (
+            <ul className="list">
+              {result.unscheduled.map(({ job, reason }) => (
+                <li key={job.id} className={selected === job.id ? 'sel' : ''} onClick={() => { setSelected(job.id); setDay(Math.floor(job.earliest / DAY)) }}>
+                  <b>{spaceName(job.spaceId)}</b> · {job.label}
+                  <small>{DAY_NAMES[Math.floor(job.earliest / DAY)]} {fmt(job.earliest)}–{fmt(job.deadline)} · {job.duration} דק׳</small>
+                  <em className="bad">{reason}</em>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card title={`שינויים ידניים (${overridden.length})`}>
+          {overridden.length === 0 ? <p className="muted">אין שינויים. לחצו על משימה בלוח כדי להזיז, לשנות או לדלג.</p> : (
+            <ul className="list">
+              {overridden.map(({ id, o }) => {
+                const j = jobById.get(id) ?? result.skipped.find((s) => s.id === id)
+                if (!j) return null
+                return (
+                  <li key={id} onClick={() => setSelected(id)}>
+                    <b>{spaceName(j.spaceId)}</b> · {j.label}
+                    <small>{o.skip ? 'דילוג' : o.pin ? `נעוץ: ${DAY_NAMES[Math.floor(o.pin.start / DAY)]} ${fmt(o.pin.start)}` : `משך ${o.duration} דק׳`}</small>
+                    <Btn onClick={(e) => { e.stopPropagation(); setOverride(id, null) }}>בטל</Btn>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {selJob && (
+        <JobPanel key={selJob.id + (selPlacement?.start ?? '')} data={data} job={selJob} placement={selPlacement}
+          unscheduled={selUnsched?.reason} override={data.overrides[overrideKey(weekStart, selJob.id)]}
+          spaceName={spaceName(selJob.spaceId)} onClose={() => setSelected(null)}
+          onChange={(o) => setOverride(selJob.id, o)} />
+      )}
+    </div>
+  )
+}
+
+function Legend() {
+  return (
+    <div className="legend">
+      {(['routine', 'activity', 'event', 'manual'] as const).map((k) => <span key={k}><i className={`k-${k}`} />{KIND_LABEL[k]}</span>)}
+    </div>
+  )
+}
+
+function JobPanel({ data, job, placement, unscheduled, override, spaceName, onClose, onChange }: {
+  data: AppData; job: Job; placement?: Placement; unscheduled?: string; override?: Override
+  spaceName: string; onClose: () => void; onChange: (o: Override | null) => void
+}) {
+  const initStart = placement?.start ?? job.earliest
+  const [workerId, setWorkerId] = useState(placement?.workerId ?? data.workers[0]?.id ?? '')
+  const [d, setD] = useState(Math.floor(initStart / DAY))
+  const [t, setT] = useState(initStart % DAY)
+  const [dur, setDur] = useState(job.duration)
+  const skipped = override?.skip
+
+  const apply = (patch: Override) => onChange({ ...override, skip: false, ...patch })
+
+  return (
+    <aside className="panel" role="dialog" aria-label="עריכת משימה">
+      <header>
+        <div><small>{KIND_LABEL[job.kind]}</small><h3>{spaceName}</h3><p>{job.label}</p></div>
+        <button className="x" onClick={onClose} aria-label="סגור">×</button>
+      </header>
+      <dl>
+        <dt>חלון נדרש</dt><dd>{DAY_NAMES[Math.floor(job.earliest / DAY)]} {fmt(job.earliest)} – {job.deadline - job.earliest >= DAY ? `${DAY_NAMES[Math.floor(job.deadline / DAY) % 7]} ` : ''}{fmt(job.deadline)}</dd>
+        <dt>שיבוץ נוכחי</dt>
+        <dd>{skipped ? 'דולג ידנית' : placement ? `${data.workers.find((w) => w.id === placement.workerId)?.name} · ${fmt(placement.start)}–${fmt(placement.end)}` : 'לא שובץ'}</dd>
+      </dl>
+      {unscheduled && <p className="bad box">{unscheduled}</p>}
+      {placement?.warnings.map((w) => <p key={w} className="warnbox">⚠ {w}</p>)}
+
+      <h4>עקיפה ידנית</h4>
+      <label>עובד
+        <select className="inp" value={workerId} onChange={(e) => setWorkerId(e.target.value)}>
+          {data.workers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+      </label>
+      <div className="row">
+        <label>יום<DaySelect value={d} onChange={setD} /></label>
+        <label>שעה<TimeInput value={t} onChange={setT} /></label>
+      </div>
+      <Btn kind="primary" onClick={() => apply({ pin: { workerId, start: d * DAY + t } })}>📌 קבע ידנית (נעוץ)</Btn>
+
+      <label>משך (דקות)<NumInput value={dur} min={5} onChange={setDur} suffix="דק׳" /></label>
+      <Btn onClick={() => apply({ duration: dur })}>עדכן משך</Btn>
+
+      <div className="row end">
+        {skipped
+          ? <Btn onClick={() => onChange(override && (override.pin || override.duration) ? { ...override, skip: false } : null)}>בטל דילוג</Btn>
+          : <Btn kind="danger" onClick={() => onChange({ ...override, skip: true })}>דלג על משימה זו</Btn>}
+        {override && <Btn onClick={() => onChange(null)}>חזור לאוטומטי</Btn>}
+      </div>
+    </aside>
+  )
+}
