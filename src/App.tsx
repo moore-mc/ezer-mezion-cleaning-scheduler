@@ -69,9 +69,9 @@ export default function App() {
           <>
             <div className="weekbar">
               <div className="weeknav">
-                <button onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="שבוע קודם">›</button>
+                <button onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="שבוע קודם">‹</button>
                 <b>שבוע {fmtD(weekStart)} – {fmtD(end)}</b>
-                <button onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="שבוע הבא">‹</button>
+                <button onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="שבוע הבא">›</button>
                 <button className="pdf" onClick={() => window.print()}>⤓ ייצוא PDF</button>
                 <button className="today" onClick={() => setWeekStart(weekStartOf(new Date().toISOString().slice(0, 10)))}>השבוע</button>
               </div>
