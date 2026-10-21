@@ -7,7 +7,11 @@ const KEY = 'ezer-cleaning-scheduler-v3'
 function load(): AppData {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as AppData
+    if (raw) {
+      const d = JSON.parse(raw) as AppData
+      // keep user edits but refresh site names (fixes the earlier misspelling)
+      return { ...d, sites: d.sites.map((x) => ({ ...x, name: seed.sites.find((y) => y.id === x.id)?.name ?? x.name })) }
+    }
   } catch { /* storage unavailable – fall back to seed */ }
   return seed
 }

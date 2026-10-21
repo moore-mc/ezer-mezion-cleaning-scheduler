@@ -38,7 +38,7 @@ const workers: Worker[] = [
 export const seed: AppData = {
   sites: [
     { id: 'pt', name: 'פתח תקווה' },
-    { id: 'gt', name: 'גוטמן / מעון שיקומי' },
+    { id: 'gt', name: 'מעון גוטמאכר' },
     { id: 'rg', name: 'רמת גן' },
   ],
   settings: { dayStart: h(6), dayEnd: h(22), buffer: 5, workDays: [0, 1, 2, 3, 4, 5], closedDates: [] },
