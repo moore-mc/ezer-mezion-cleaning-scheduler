@@ -61,8 +61,9 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
   const patch = (id: string, p: Partial<Space>) => setData((d) => ({ ...d, spaces: d.spaces.map((s) => s.id === id ? { ...s, ...p } : s) }))
   const add = () => {
     const id = uid('s-')
-    setData((d) => ({ ...d, spaces: [...d.spaces, { id, siteId, name: 'חלל חדש', typeId: d.types[0]?.id ?? '', level: 2, blocked: [], activities: [], events: [] }] }))
+    setData((d) => ({ ...d, spaces: [{ id, siteId, name: 'חלל חדש', typeId: d.types[0]?.id ?? '', level: 2, blocked: [], activities: [], events: [] }, ...d.spaces] }))
     setOpen(id)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   return (
     <div className="stack">
@@ -168,10 +169,10 @@ export function WorkersView({ data, setData, siteId }: { data: AppData; setData:
     <div className="stack">
       <div className="bar"><h2>עובדי ניקיון ({workers.length})</h2>
         <Btn kind="primary" onClick={() => setData((d) => ({
-          ...d, workers: [...d.workers, {
+          ...d, workers: [{
             id: uid('w-'), siteId, name: 'עובד חדש', color: COLORS[d.workers.length % COLORS.length], absences: [],
             shifts: [{ start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, null, null],
-          }],
+          }, ...d.workers],
         }))}>+ הוסף עובד</Btn></div>
       {workers.map((w) => (
         <Card key={w.id}>
