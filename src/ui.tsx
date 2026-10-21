@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { fmt, parseTime, DAY_NAMES } from './scheduler'
 
 export const uid = (p: string) => `${p}${Math.random().toString(36).slice(2, 8)}`
@@ -42,4 +42,27 @@ export function Btn({ kind = 'ghost', ...p }: React.ButtonHTMLAttributes<HTMLBut
 
 export function LevelPill({ level }: { level: number }) {
   return <span className={`lvl lvl${level}`}>רמה {level}</span>
+}
+
+export function Modal({ title, onClose, onSubmit, submitLabel, children }: {
+  title: string; onClose: () => void; onSubmit: () => void; submitLabel: string; children: ReactNode
+}) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [onClose])
+  return (
+    <div className="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form className="modal" role="dialog" aria-modal="true" aria-label={title}
+        onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
+        <header><h3>{title}</h3><button type="button" className="x" onClick={onClose} aria-label="סגור">×</button></header>
+        <div className="modal-body">{children}</div>
+        <footer className="modal-f">
+          <Btn type="button" onClick={onClose}>ביטול</Btn>
+          <Btn type="submit" kind="primary">{submitLabel}</Btn>
+        </footer>
+      </form>
+    </div>
+  )
 }

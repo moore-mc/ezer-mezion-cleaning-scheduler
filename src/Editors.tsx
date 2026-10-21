@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { AppData, Level, Space, Worker } from './types'
 import { DAY_NAMES } from './scheduler'
-import { Btn, Card, DaySelect, LevelPill, NumInput, TimeInput, uid } from './ui'
+import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
 
 type SetData = (f: (d: AppData) => AppData) => void
 const LEVELS: Level[] = [1, 2, 3]
@@ -59,15 +59,35 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
   const spaces = data.spaces.filter((s) => s.siteId === siteId)
   const [open, setOpen] = useState<string | null>(spaces[0]?.id ?? null)
   const patch = (id: string, p: Partial<Space>) => setData((d) => ({ ...d, spaces: d.spaces.map((s) => s.id === id ? { ...s, ...p } : s) }))
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState<{ name: string; typeId: string; level: Level }>({ name: '', typeId: data.types[0]?.id ?? '', level: 2 })
+  const startAdd = () => { setForm({ name: '', typeId: data.types[0]?.id ?? '', level: 2 }); setAdding(true) }
   const add = () => {
+    if (!form.name.trim()) return
     const id = uid('s-')
-    setData((d) => ({ ...d, spaces: [{ id, siteId, name: 'חלל חדש', typeId: d.types[0]?.id ?? '', level: 2, blocked: [], activities: [], events: [] }, ...d.spaces] }))
+    setData((d) => ({ ...d, spaces: [{ id, siteId, name: form.name.trim(), typeId: form.typeId, level: form.level, blocked: [], activities: [], events: [] }, ...d.spaces] }))
     setOpen(id)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setAdding(false)
   }
   return (
     <div className="stack">
-      <div className="bar"><h2>חללים ({spaces.length})</h2><Btn kind="primary" onClick={add}>+ הוסף חלל</Btn></div>
+      <div className="bar"><h2>חללים ({spaces.length})</h2><Btn kind="primary" onClick={startAdd}>+ הוסף חלל</Btn></div>
+      {adding && (
+        <Modal title="הוספת חלל" submitLabel="הוסף חלל" onClose={() => setAdding(false)} onSubmit={add}>
+          <label>שם החלל<input className="inp" autoFocus required value={form.name} placeholder="למשל: חדר ישיבות" onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+          <label>סוג חלל
+            <select className="inp" value={form.typeId} onChange={(e) => setForm({ ...form, typeId: e.target.value })}>
+              {data.types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </label>
+          <label>רמת פעילות
+            <select className="inp" value={form.level} onChange={(e) => setForm({ ...form, level: Number(e.target.value) as Level })}>
+              {LEVELS.map((l) => <option key={l} value={l}>רמה {l}</option>)}
+            </select>
+          </label>
+          <p className="muted">מגבלות, פעילויות ואירועים מוסיפים אחרי היצירה, בכרטיס החלל.</p>
+        </Modal>
+      )}
       {spaces.map((s) => {
         const type = data.types.find((t) => t.id === s.typeId)
         const cell = type?.matrix[s.level]
@@ -165,15 +185,27 @@ export function WorkersView({ data, setData, siteId }: { data: AppData; setData:
   const workers = data.workers.filter((w) => w.siteId === siteId)
   const patch = (id: string, p: Partial<Worker>) => setData((d) => ({ ...d, workers: d.workers.map((w) => w.id === id ? { ...w, ...p } : w) }))
   const [absDate, setAbsDate] = useState('')
+  const [addingW, setAddingW] = useState(false)
+  const [newName, setNewName] = useState('')
   return (
     <div className="stack">
       <div className="bar"><h2>עובדי ניקיון ({workers.length})</h2>
-        <Btn kind="primary" onClick={() => setData((d) => ({
-          ...d, workers: [{
-            id: uid('w-'), siteId, name: 'עובד חדש', color: COLORS[d.workers.length % COLORS.length], absences: [],
-            shifts: [{ start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, null, null],
-          }, ...d.workers],
-        }))}>+ הוסף עובד</Btn></div>
+        <Btn kind="primary" onClick={() => { setNewName(''); setAddingW(true) }}>+ הוסף עובד</Btn></div>
+      {addingW && (
+        <Modal title="הוספת עובד" submitLabel="הוסף עובד" onClose={() => setAddingW(false)} onSubmit={() => {
+          if (!newName.trim()) return
+          setData((d) => ({
+            ...d, workers: [{
+              id: uid('w-'), siteId, name: newName.trim(), color: COLORS[d.workers.length % COLORS.length], absences: [],
+              shifts: [{ start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, { start: 420, end: 900 }, null, null],
+            }, ...d.workers],
+          }))
+          setAddingW(false)
+        }}>
+          <label>שם העובד<input className="inp" autoFocus required value={newName} onChange={(e) => setNewName(e.target.value)} /></label>
+          <p className="muted">ברירת מחדל: ראשון–חמישי 07:00–15:00. את המשמרות אפשר לשנות בכרטיס העובד.</p>
+        </Modal>
+      )}
       {workers.map((w) => (
         <Card key={w.id}>
           <div className="row wrap">
