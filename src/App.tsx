@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Override } from './types'
-import { addDays, floorMoves, overrideKey, schedule, weekStartOf } from './scheduler'
+import { addDays, floorMoves, hoursReport, overrideKey, schedule, weekStartOf } from './scheduler'
 import { useData } from './store'
 import ScheduleView from './ScheduleView'
 import PrintView from './PrintView'
@@ -48,6 +48,7 @@ export default function App() {
 
   const moves = floorMoves(result, siteData).total
   const multiFloor = (data.sites.find((x) => x.id === siteId)?.floors.length ?? 1) > 1
+  const overtime = hoursReport(result, siteData).alerts.length
   const total = result.jobs.length
   const placed = result.placements.length
   const warns = result.placements.filter((p) => p.warnings.length).length
@@ -85,6 +86,7 @@ export default function App() {
                 <div className="kpi"><b>{total ? Math.round((placed / total) * 100) : 100}%</b><span>שובצו ({placed}/{total})</span></div>
                 <div className={`kpi ${result.unscheduled.length ? 'bad' : ''}`}><b>{result.unscheduled.length}</b><span>ללא שיבוץ</span></div>
                 <div className={`kpi ${warns ? 'warn' : ''}`}><b>{warns}</b><span>אזהרות עקיפה</span></div>
+                <div className={`kpi ${overtime ? 'bad' : ''}`}><b>{overtime}</b><span>התראות שעות נוספות</span></div>
                 <div className="kpi"><b>{(minutes / 60).toFixed(1)}</b><span>שעות ניקיון</span></div>
                 {multiFloor && <div className="kpi"><b>{moves}</b><span>מעברי קומה בשבוע</span></div>}
               </div>

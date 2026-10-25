@@ -256,19 +256,20 @@ export function WorkersView({ data, setData, siteId }: { data: AppData; setData:
             <Btn kind="danger" onClick={() => confirm(`למחוק את ${w.name}?`) && setData((d) => ({ ...d, workers: d.workers.filter((x) => x.id !== w.id) }))}>מחק</Btn>
           </div>
           <div className="shifts">
+            <p className="muted" style={{ gridColumn: '1 / -1' }}>זמינות העובד: המערכת משתמשת בשעות האלה לפי הצורך ולא חייבת למלא אותן. {w.shifts.some((sh) => sh && sh.end - sh.start > data.settings.maxDailyHours * 60) ? `⚠ יש ימים עם חלון ארוך מ-${data.settings.maxDailyHours} שעות – המערכת תשבץ עד ${data.settings.maxDailyHours} שעות ביום ותתריע אם חורגת.` : ''}</p>
             {DAY_NAMES.map((n, d) => {
               const s = w.shifts[d]
               const setShift = (v: { start: number; end: number } | null) => patch(w.id, { shifts: w.shifts.map((x, i) => i === d ? v : x) })
               return (
                 <div className={`shift-row ${s ? '' : 'off'}`} key={d}>
                   <label className="inline"><input type="checkbox" checked={!!s} onChange={(e) => setShift(e.target.checked ? { start: 7 * 60, end: 15 * 60 } : null)} /> {n}</label>
-                  {s ? <><TimeInput value={s.start} onChange={(v) => setShift({ ...s, start: v })} /><span>–</span><TimeInput value={s.end} onChange={(v) => setShift({ ...s, end: v })} /></> : <span className="muted">חופש</span>}
+                  {s ? <><TimeInput value={s.start} onChange={(v) => setShift({ ...s, start: v })} /><span>–</span><TimeInput value={s.end} onChange={(v) => setShift({ ...s, end: v })} /></> : <span className="muted">לא זמין</span>}
                 </div>
               )
             })}
           </div>
           <div className="row wrap">
-            <b>היעדרויות:</b>
+            <b>היעדרויות (לא זמין בתאריכים):</b>
             {w.absences.map((a) => <span className="chip" key={a}>{a}<button onClick={() => patch(w.id, { absences: w.absences.filter((x) => x !== a) })}>×</button></span>)}
             <input className="inp" type="date" value={absDate} onChange={(e) => setAbsDate(e.target.value)} />
             <Btn onClick={() => { if (absDate && !w.absences.includes(absDate)) { patch(w.id, { absences: [...w.absences, absDate] }); setAbsDate('') } }}>+ היעדרות</Btn>
@@ -294,6 +295,11 @@ export function SettingsView({ data, setData, reset, siteId }: { data: AppData; 
           <label>סוף יום שישי<TimeInput value={st.fridayEnd} onChange={(v) => set({ fridayEnd: v })} /></label>
           <label>מרווח בין משימות<NumInput value={st.buffer} onChange={(v) => set({ buffer: v })} suffix="דק׳" /></label>
           <label>זמן מעבר בין קומות<NumInput value={st.floorChangeMin} onChange={(v) => set({ floorChangeMin: v })} suffix="דק׳" /></label>
+        </div>
+        <div className="row wrap">
+          <label>מקסימום שעות ביום (לפני שעות נוספות)<NumInput value={st.maxDailyHours} min={1} max={16} onChange={(v) => set({ maxDailyHours: v })} suffix="שעות" /></label>
+          <label>מקסימום שעות בשבוע<NumInput value={st.maxWeeklyHours} min={1} max={80} onChange={(v) => set({ maxWeeklyHours: v })} suffix="שעות" /></label>
+          <small className="muted">חריגה מהמקסימום מסומנת כהתראה בלוח. המערכת נמנעת מחריגה כשאפשר, אבל לא אוסרת אותה. ברירת מחדל: 8 שעות ביום ו-42 בשבוע; כדאי לאמת מול הסכם ההעסקה.</small>
         </div>
         <div className="row wrap">
           <b>ימי ניקיון שוטף:</b>

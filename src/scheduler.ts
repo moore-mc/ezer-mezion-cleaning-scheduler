@@ -229,6 +229,7 @@ interface WorkerState {
   busy: Busy[]
   load: number[] // minutes assigned per day
   floors: Set<number>[] // floors worked per day
+  pres: number[] // minutes of presence per day (see presenceMin)
 }
 
 function findStart(
@@ -258,6 +259,41 @@ function diagnose(states: WorkerState[], job: Job, blocked: Interval[], buffer: 
   return 'כל העובדים תפוסים בחלון הזמן – נדרש עובד נוסף או הזזת משימה'
 }
 
+// ───────────── working hours ─────────────
+
+/** Gaps shorter than this keep two jobs in one continuous stint; longer gaps count as a split shift (off duty in between). */
+const STINT_GAP = 120
+
+/** Minutes of presence in a day: stints of consecutive jobs, measured from first start to last end. */
+export function presenceMin(intervals: readonly (readonly number[])[]): number {
+  const iv = intervals.map((x) => [x[0], x[1]]).sort((a, b) => a[0] - b[0])
+  let total = 0, curS = -1, curE = -1
+  for (const [a, b] of iv) {
+    if (curS < 0) { curS = a; curE = b }
+    else if (a - curE < STINT_GAP) curE = Math.max(curE, b)
+    else { total += curE - curS; curS = a; curE = b }
+  }
+  return curS < 0 ? total : total + (curE - curS)
+}
+
+export interface HoursAlert { workerId: string; day: number | null; minutes: number; limit: number }
+
+/** Per-worker presence by day / week, and the overtime alerts (daily over the daily limit, weekly over the weekly limit). */
+export function hoursReport(result: ScheduleResult, data: AppData) {
+  const dayLimit = data.settings.maxDailyHours * 60, weekLimit = data.settings.maxWeeklyHours * 60
+  const alerts: HoursAlert[] = []
+  const byWorker: Record<string, { days: number[]; week: number }> = {}
+  for (const w of data.workers) {
+    const mine = result.placements.filter((p) => p.workerId === w.id)
+    const days = Array.from({ length: 7 }, (_, d) => presenceMin(mine.filter((p) => Math.floor(p.start / DAY) === d).map((p) => [p.start, p.end])))
+    const week = days.reduce((a, b) => a + b, 0)
+    byWorker[w.id] = { days, week }
+    days.forEach((m, d) => { if (m > dayLimit) alerts.push({ workerId: w.id, day: d, minutes: m, limit: dayLimit }) })
+    if (week > weekLimit) alerts.push({ workerId: w.id, day: null, minutes: week, limit: weekLimit })
+  }
+  return { byWorker, alerts }
+}
+
 // ───────────── main ─────────────
 
 /** `pack` = ignore workload balancing and always take the earliest slot (used for staffing estimates). */
@@ -275,13 +311,15 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
   }
 
   const states: WorkerState[] = data.workers.map((w) => ({
-    worker: w, shifts: shiftsFor(w, data, weekStart), busy: [], load: Array(7).fill(0), floors: Array.from({ length: 7 }, () => new Set<number>()),
+    worker: w, shifts: shiftsFor(w, data, weekStart), busy: [], load: Array(7).fill(0), floors: Array.from({ length: 7 }, () => new Set<number>()), pres: Array(7).fill(0),
   }))
   const stateById = new Map(states.map((s) => [s.worker.id, s]))
   const place = (st: WorkerState, job: Job, start: number) => {
     st.busy.push([start, start + job.duration, job.floor ?? 0])
     st.load[Math.min(6, Math.floor(start / DAY))] += job.duration
     st.floors[Math.min(6, Math.floor(start / DAY))].add(job.floor ?? 0)
+    const pd = Math.min(6, Math.floor(start / DAY))
+    st.pres[pd] = presenceMin(st.busy.filter((b) => Math.floor(b[0] / DAY) === pd))
   }
 
   // two cleaners never work in the same space at the same time
@@ -343,10 +381,17 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
       }
       const moves = (prev && prev[2] !== f ? 1 : 0) + (next && next[2] !== f ? 1 : 0)
       const today = st.floors[Math.min(6, Math.floor(t / DAY))]
+      // overtime: stay within the daily hours limit whenever possible (allowed, but flagged, when unavoidable)
+      const dIdx = Math.min(6, Math.floor(t / DAY))
+      const dayIv = st.busy.filter((b) => Math.floor(b[0] / DAY) === dIdx)
+      const dayAfter = presenceMin([...dayIv, [t, t + job.duration]])
+      const weekAfter = st.pres.reduce((a, b) => a + b, 0) - st.pres[dIdx] + dayAfter
+      const over = (dayAfter > data.settings.maxDailyHours * 60 ? (opts.pack ? 1e7 : 2000) : 0) +
+        (weekAfter > data.settings.maxWeeklyHours * 60 ? (opts.pack ? 5e6 : 1000) : 0)
       const newFloor = today.size > 0 && !today.has(f) ? AFFINITY_PENALTY : 0 // keep each cleaner on few floors per day
       const cost = opts.pack
-        ? states.indexOf(st) * 1e6 + t + moves * FLOOR_PENALTY + newFloor
-        : (t - job.earliest) * 0.25 + dayLoad * 0.6 + weekLoad * 0.5 + moves * FLOOR_PENALTY + newFloor // earlier start + balanced workload + fewer floor changes
+        ? states.indexOf(st) * 1e6 + t + moves * FLOOR_PENALTY + newFloor + over
+        : (t - job.earliest) * 0.25 + dayLoad * 0.6 + weekLoad * 0.5 + moves * FLOOR_PENALTY + newFloor + over // earlier start + balanced workload + fewer floor changes
       if (!best || cost < best.cost) best = { st, t, cost }
     }
     if (!best) { unscheduled.push({ job, reason: diagnose(states, job, blocked, buffer, floorMin) }); continue }

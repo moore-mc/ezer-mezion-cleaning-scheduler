@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { AppData, Job, Override, Placement, ScheduleResult } from './types'
-import { DAY, DAY_NAMES, addDays, floorMoves, fmt, overrideKey } from './scheduler'
+import { DAY, DAY_NAMES, addDays, floorMoves, fmt, hoursReport, overrideKey } from './scheduler'
 import type { Space } from './types'
 import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
 
@@ -38,6 +38,8 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
   const spaceName = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? '—'
   const site = data.sites.find((x) => x.id === siteId)
   const moves = useMemo(() => floorMoves(result, data), [result, data])
+  const hours = useMemo(() => hoursReport(result, data), [result, data])
+  const hh = (m: number) => (m / 60).toFixed(1)
   const floorName = (spaceId: string) => {
     const sp = data.spaces.find((x) => x.id === spaceId) as Space | undefined
     return site && site.floors.length > 1 ? site.floors[sp?.floor ?? 0] : ''
@@ -101,7 +103,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                 <div className="col" key={w.id}>
                   <header style={{ borderColor: w.color }}>
                     <b><i style={{ background: w.color }} />{w.name}</b>
-                    <small>{absent ? 'נעדר' : shift ? <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span> : 'חופש'} · {mine.length} משימות · {(mins / 60).toFixed(1)} ש׳{site && site.floors.length > 1 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
+                    <small>{absent ? 'נעדר' : shift ? <>זמין <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span></> : 'לא זמין'} · {mine.length} משימות · עבודה {(mins / 60).toFixed(1)} ש׳{(hours.byWorker[w.id]?.days[day] ?? 0) > data.settings.maxDailyHours * 60 ? <b className="bad"> · ⚠ נוכחות {hh(hours.byWorker[w.id].days[day])} ש׳ (חריגה)</b> : ` · נוכחות ${hh(hours.byWorker[w.id]?.days[day] ?? 0)} ש׳`}{site && site.floors.length > 1 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
                   </header>
                   {mine.length === 0 && <p className="muted pad">אין משימות</p>}
                   {mine.map((p) => {
@@ -156,6 +158,20 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
           </div>
         )}
       </Card>
+
+      {hours.alerts.length > 0 && (
+        <Card title={`התראות שעות נוספות (${hours.alerts.length})`}>
+          <ul className="list">
+            {hours.alerts.map((a, i) => (
+              <li key={i}>
+                <b>{data.workers.find((w) => w.id === a.workerId)?.name}</b>
+                <span>{a.day === null ? 'סה״כ שבועי' : `יום ${DAY_NAMES[a.day]}`}: <b className="bad">{hh(a.minutes)} ש׳</b> (המקסימום {hh(a.limit)} ש׳)</span>
+              </li>
+            ))}
+          </ul>
+          <p className="muted">נוכחות = משימות רצופות מההתחלה ועד הסוף; הפסקה של שעתיים ומעלה נחשבת כזמן חופשי. אפשר לפתור בהוספת עובד, בהרחבת זמינות של עובדים אחרים או בקיצור הסבבים.</p>
+        </Card>
+      )}
 
       <div className="two">
         <Card title={`ללא שיבוץ (${result.unscheduled.length})`}>

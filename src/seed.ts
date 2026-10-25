@@ -125,7 +125,7 @@ const workers: Worker[] = [
 
 export const seed: AppData = {
   sites,
-  settings: { dayStart: h(6), dayEnd: h(22), fridayEnd: h(14), buffer: 5, floorChangeMin: 8, workDays: [0, 1, 2, 3, 4, 5], closedDates: [] },
+  settings: { dayStart: h(6), dayEnd: h(22), fridayEnd: h(14), buffer: 5, floorChangeMin: 8, maxDailyHours: 8, maxWeeklyHours: 42, workDays: [0, 1, 2, 3, 4, 5], closedDates: [] },
   types, spaces, workers,
   manualJobs: [],
   overrides: {},

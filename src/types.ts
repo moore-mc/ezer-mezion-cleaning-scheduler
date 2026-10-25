@@ -117,6 +117,9 @@ export interface Settings {
   buffer: number
   /** Extra minutes a cleaner needs to move to another floor (lift, stairs, equipment). */
   floorChangeMin: number
+  /** Presence beyond this many hours a day / week triggers an overtime warning (standard Israeli day = 8h, week = 42h). */
+  maxDailyHours: number
+  maxWeeklyHours: number
   workDays: number[]
   /** Dates with no work at all (holidays, election days). */
   closedDates: string[]
