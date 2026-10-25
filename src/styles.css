@@ -172,3 +172,10 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 
 .ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
 .item .t { direction: ltr; unicode-bidi: isolate; text-align: start; }
+
+.site-group + .site-group { margin-top: 18px; }
+.site-group h4 { margin-bottom: 6px; }
+.matrix.compact th, .matrix.compact td { padding: 6px 8px; }
+.matrix.compact tr.hl { background: var(--brand-soft); }
+.lvlsel { font-weight: 600; padding: 3px 8px; }
+.lvlsel.lvl1 { background: #e3f1e7; color: #25623a; } .lvlsel.lvl2 { background: #fdf0cf; color: #7a5a00; } .lvlsel.lvl3 { background: #fbdcd8; color: #8c2a20; }

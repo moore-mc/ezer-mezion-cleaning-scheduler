@@ -103,12 +103,15 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
           <p className="muted">מגבלות, פעילויות ואירועים מוסיפים אחרי היצירה, בכרטיס החלל.</p>
         </Modal>
       )}
-      {spaces.map((s) => {
+      <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
+        onLevel={(id, level) => patch(id, { level })}
+        onOpen={(id) => { setOpen(id); setTimeout(() => document.getElementById('space-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} />
+      {spaces.filter((s) => s.id === open).map((s) => {
         const type = data.types.find((t) => t.id === s.typeId)
         const cell = type?.matrix[s.level]
         const isOpen = open === s.id
         return (
-          <Card key={s.id}>
+          <div id="space-detail" key={s.id}><Card>
             <div className="space-h" onClick={() => setOpen(isOpen ? null : s.id)}>
               <div>
                 <b>{s.name}</b> <LevelPill level={s.level} />
@@ -187,7 +190,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
                 </div>
               </div>
             )}
-          </Card>
+          </Card></div>
         )
       })}
     </div>
@@ -314,6 +317,56 @@ function ManualJobs({ data, setData, siteId }: { data: AppData; setData: SetData
           <Btn kind="danger" onClick={() => setData((d) => ({ ...d, manualJobs: d.manualJobs.filter((x) => x.id !== m.id) }))}>×</Btn>
         </div>
       ))}
+    </Card>
+  )
+}
+
+function SpaceTable({ data, spaces, siteId, open, onLevel, onOpen }: {
+  data: AppData; spaces: Space[]; siteId: string; open: string | null
+  onLevel: (id: string, l: Level) => void; onOpen: (id: string) => void
+}) {
+  const [all, setAll] = useState(false)
+  const groups = (all ? data.sites : data.sites.filter((x) => x.id === siteId))
+    .map((site) => ({ site, rows: data.spaces.filter((x) => x.siteId === site.id) }))
+  const sum = (rows: Space[]) => [1, 2, 3].map((l) => rows.filter((x) => x.level === l).length)
+  return (
+    <Card title="רשימת חללים ורמת פעילות"
+      actions={<label className="inline"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> הצג את כל הסניפים</label>}>
+      {groups.map(({ site, rows }) => {
+        const [a, b, c] = sum(rows)
+        return (
+          <div key={site.id} className="site-group">
+            <h4>{site.name} <small className="muted">· {rows.length} חללים · רמה 1: {a} · רמה 2: {b} · רמה 3: {c}</small></h4>
+            <div className="table-wrap">
+              <table className="matrix compact">
+                <thead><tr><th>חלל</th><th>סוג חלל</th><th>רמת פעילות</th><th>סבבים ביום</th><th>דק׳ לסבב</th><th>אילוצים</th><th /></tr></thead>
+                <tbody>
+                  {rows.map((sp) => {
+                    const type = data.types.find((t) => t.id === sp.typeId)
+                    const cell = type?.matrix[sp.level]
+                    return (
+                      <tr key={sp.id} className={open === sp.id ? 'hl' : ''}>
+                        <td><b>{sp.name}</b></td>
+                        <td>{type?.name}</td>
+                        <td>
+                          <select className={`inp lvlsel lvl${sp.level}`} value={sp.level} aria-label={`רמת פעילות – ${sp.name}`}
+                            onChange={(e) => onLevel(sp.id, Number(e.target.value) as Level)}>
+                            {LEVELS.map((l) => <option key={l} value={l}>רמה {l}</option>)}
+                          </select>
+                        </td>
+                        <td>{sp.roundsOverride ?? cell?.roundsPerDay}</td>
+                        <td>{sp.minutesOverride ?? cell?.minutes}</td>
+                        <td className="muted">{sp.blocked.length + sp.activities.length + sp.events.length || '—'}</td>
+                        <td><Btn onClick={() => onOpen(sp.id)}>פרטים</Btn></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })}
     </Card>
   )
 }
