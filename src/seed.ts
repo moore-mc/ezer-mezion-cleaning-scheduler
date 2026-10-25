@@ -1,4 +1,5 @@
 import type { AppData, Level, Space, SpaceType, Worker } from './types'
+import { addDays, toISO, weekStartOf } from './scheduler'
 import { BASE_TASKS, FILE_SITES, FILE_TYPES } from './fileData'
 
 // ── Source: " מטריצת ניקיון.xlsx" ──
@@ -41,6 +42,33 @@ const spaces: Space[] = FILE_SITES.flatMap((site) =>
       typeId: slug(row.type), level: row.level,
       blocked: [], activities: [], events: [],
     }))))
+
+// ── Demo constraints ──
+// The file has no schedule data, so these are ILLUSTRATIVE constraints per site (editable in the "חללים" tab).
+const SUN_THU = [0, 1, 2, 3, 4]
+const byId = new Map(spaces.map((x) => [x.id, x]))
+const block = (ids: string[], days: number[], start: number, end: number, label: string) =>
+  ids.forEach((id) => days.forEach((d) => byId.get(id)?.blocked.push({ id: `${id}-b${d}-${start}`, day: d, start, end, label })))
+const activity = (ids: string[], days: number[], start: number, end: number, label: string, withinMin: number) =>
+  ids.forEach((id) => days.forEach((d) => byId.get(id)?.activities.push({ id: `${id}-a${d}-${start}`, day: d, start, end, label, withinMin })))
+const thisWeekDay = (d: number) => addDays(weekStartOf(toISO(new Date())), d)
+
+// בני ברק – מעון גוטמאכר
+block(['bb-H1', 'bb-H2'], SUN_THU, h(12, 30), h(15), 'שנת צהריים')
+block(['bb-K1', 'bb-K2', 'bb-K3', 'bb-K4'], SUN_THU, h(9), h(11), 'פעילות בחצר')
+block(['bb-E1', 'bb-E2', 'bb-E3'], [0, 2], h(9), h(10), 'ישיבת צוות')
+activity(['bb-A1'], SUN_THU, h(12), h(13), 'ארוחת צהריים', 90)
+activity(['bb-L1'], SUN_THU, h(16), h(19), 'פעילות אחה״צ בג׳ימבורי', 180)
+// פתח תקווה – שושנים 12
+block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')
+block(['pt-G1', 'pt-G2', 'pt-G3'], [1, 3], h(10), h(11), 'ישיבת צוות')
+activity(['pt-F1', 'pt-F2'], [1, 3], h(17), h(20), 'חוג / הרצאת ערב', 120)
+activity(['pt-F1'], [5], h(8), h(11), 'אירוע שישי בבוקר', 180)
+byId.get('pt-F2')?.events.push({ id: 'pt-F2-ev1', date: thisWeekDay(2), start: h(18), end: h(21), label: 'אירוע התרמה', cleanBefore: true, cleanAfterWithinMin: 60 })
+// רמת גן – שד׳ ירושלים
+block(['rg-F1'], SUN_THU, h(9), h(13), 'קבלת קהל')
+block(['rg-D1'], SUN_THU, h(9), h(10), 'ישיבת בוקר')
+activity(['rg-H1'], [1], h(18), h(20, 30), 'אירוע ערב', 90)
 
 type Shift = { start: number; end: number } | null
 const w = (id: string, siteId: string, name: string, color: string, start: number, end: number, fri: Shift): Worker => ({
