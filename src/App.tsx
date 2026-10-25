@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Override } from './types'
-import { addDays, overrideKey, schedule, weekStartOf } from './scheduler'
+import { addDays, floorMoves, overrideKey, schedule, weekStartOf } from './scheduler'
 import { useData } from './store'
 import ScheduleView from './ScheduleView'
 import PrintView from './PrintView'
@@ -46,6 +46,8 @@ export default function App() {
       return { ...d, overrides }
     })
 
+  const moves = floorMoves(result, siteData).total
+  const multiFloor = (data.sites.find((x) => x.id === siteId)?.floors.length ?? 1) > 1
   const total = result.jobs.length
   const placed = result.placements.length
   const warns = result.placements.filter((p) => p.warnings.length).length
@@ -84,10 +86,11 @@ export default function App() {
                 <div className={`kpi ${result.unscheduled.length ? 'bad' : ''}`}><b>{result.unscheduled.length}</b><span>ללא שיבוץ</span></div>
                 <div className={`kpi ${warns ? 'warn' : ''}`}><b>{warns}</b><span>אזהרות עקיפה</span></div>
                 <div className="kpi"><b>{(minutes / 60).toFixed(1)}</b><span>שעות ניקיון</span></div>
+                {multiFloor && <div className="kpi"><b>{moves}</b><span>מעברי קומה בשבוע</span></div>}
               </div>
             </div>
             <PrintView data={siteData} siteName={data.sites.find((x) => x.id === siteId)?.name ?? ''} weekStart={weekStart} result={result} />
-            <ScheduleView data={siteData} weekStart={weekStart} result={result} setOverride={setOverride} />
+            <ScheduleView siteId={siteId} data={siteData} weekStart={weekStart} result={result} setOverride={setOverride} />
           </>
         )}
         {tab === 'staffing' && (

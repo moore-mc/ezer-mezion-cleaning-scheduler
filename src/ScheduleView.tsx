@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { AppData, Job, Override, Placement, ScheduleResult } from './types'
-import { DAY, DAY_NAMES, addDays, fmt, overrideKey } from './scheduler'
+import { DAY, DAY_NAMES, addDays, floorMoves, fmt, overrideKey } from './scheduler'
+import type { Space } from './types'
 import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
 
 const T0 = 5 * 60 // timeline starts 05:00
@@ -14,13 +15,14 @@ const hueOf = (idx: number) => Math.round((idx * 137.508 + 20) % 360)
 const KIND_LABEL = { routine: 'שוטף', activity: 'אחרי פעילות', event: 'אירוע מיוחד', manual: 'ידני' }
 
 interface Props {
+  siteId: string
   data: AppData
   weekStart: string
   result: ScheduleResult
   setOverride: (jobId: string, o: Override | null) => void
 }
 
-export default function ScheduleView({ data, weekStart, result, setOverride }: Props) {
+export default function ScheduleView({ siteId, data, weekStart, result, setOverride }: Props) {
   const today = new Date().toISOString().slice(0, 10)
   const [day, setDay] = useState(() => {
     const i = Math.round((Date.parse(today) - Date.parse(weekStart)) / 86400000)
@@ -34,8 +36,19 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
 
   const jobById = useMemo(() => new Map(result.jobs.map((j) => [j.id, j])), [result])
   const spaceName = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? '—'
+  const site = data.sites.find((x) => x.id === siteId)
+  const moves = useMemo(() => floorMoves(result, data), [result, data])
+  const floorName = (spaceId: string) => {
+    const sp = data.spaces.find((x) => x.id === spaceId) as Space | undefined
+    return site && site.floors.length > 1 ? site.floors[sp?.floor ?? 0] : ''
+  }
   const typeIdx = (spaceId: string) => data.types.findIndex((t) => t.id === data.spaces.find((s) => s.id === spaceId)?.typeId)
   const hue = (spaceId: string) => ({ ['--h' as string]: hueOf(Math.max(0, typeIdx(spaceId))) }) as React.CSSProperties
+  const dayMoves = (workerId: string) => {
+    const mine = result.placements.filter((p) => p.workerId === workerId && Math.floor(p.start / DAY) === day)
+    const fl = (id: string) => data.spaces.find((x) => x.id === jobById.get(id)?.spaceId)?.floor ?? 0
+    return mine.reduce((n, p, i) => n + (i > 0 && fl(p.jobId) !== fl(mine[i - 1].jobId) ? 1 : 0), 0)
+  }
   const dayTypes = [...new Set(result.placements.filter((p) => Math.floor(p.start / DAY) === day).map((p) => typeIdx(jobById.get(p.jobId)!.spaceId)))]
     .filter((i) => i >= 0).sort((a, b) => a - b)
   const closed = data.settings.closedDates.includes(addDays(weekStart, day))
@@ -88,7 +101,7 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
                 <div className="col" key={w.id}>
                   <header style={{ borderColor: w.color }}>
                     <b><i style={{ background: w.color }} />{w.name}</b>
-                    <small>{absent ? 'נעדר' : shift ? <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span> : 'חופש'} · {mine.length} משימות · {(mins / 60).toFixed(1)} ש׳</small>
+                    <small>{absent ? 'נעדר' : shift ? <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span> : 'חופש'} · {mine.length} משימות · {(mins / 60).toFixed(1)} ש׳{site && site.floors.length > 1 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
                   </header>
                   {mine.length === 0 && <p className="muted pad">אין משימות</p>}
                   {mine.map((p) => {
@@ -96,7 +109,7 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
                     return (
                       <button key={p.jobId} style={hue(j.spaceId)} className={`item tcol ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
                         <span className="t">{fmt(p.start)}–{fmt(p.end)}</span>
-                        <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label} · {j.duration} דק׳</small></span>
+                        <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{floorName(j.spaceId) && <em className="kind">{floorName(j.spaceId)}</em>}{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label} · {j.duration} דק׳</small></span>
                       </button>
                     )
                   })}

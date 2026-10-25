@@ -3,7 +3,11 @@ import { DAY, DAY_NAMES, addDays, fmt } from './scheduler'
 
 export default function PrintView({ data, weekStart, result, siteName }: { siteName: string; data: AppData; weekStart: string; result: ScheduleResult }) {
   const job = new Map(result.jobs.map((j) => [j.id, j]))
-  const space = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? ''
+  const space = (id: string) => {
+    const sp = data.spaces.find((s) => s.id === id)
+    const site = data.sites.find((x) => x.id === sp?.siteId)
+    return `${sp?.name ?? ''}${site && site.floors.length > 1 ? ` (${site.floors[sp?.floor ?? 0]})` : ''}`
+  }
   const date = (d: number) => { const iso = addDays(weekStart, d); return `${iso.slice(8)}/${iso.slice(5, 7)}` }
   return (
     <div className="print-only">

@@ -188,3 +188,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 
 .matrix tr.detail > td { padding: 8px 0 14px; background: var(--brand-soft); }
 .matrix tr.detail .card { box-shadow: none; border: 1px solid var(--line); }
+
+.floorchip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); padding: 4px 8px; border-radius: 10px; }
+.floorchip .inp { width: 120px; }
+.floorchip .x { font-size: 20px; }
+.chip.floor { background: var(--surface); color: var(--ink); font-size: 11px; padding: 0 7px; margin-inline-end: 6px; }

@@ -56,6 +56,8 @@ export interface SpecialEvent {
 export interface Site {
   id: string
   name: string
+  /** Floor names, index = floor number (a single-floor site has one entry). */
+  floors: string[]
 }
 
 export interface Space {
@@ -67,6 +69,8 @@ export interface Space {
   /** Optional per-space overrides of the matrix cell (rounds per day / minutes per round). */
   minutesOverride?: number
   roundsOverride?: number
+  /** Index into the site's floors (default 0). */
+  floor?: number
   /** Preferred part of the day for once-a-day / weekly cleans: before 12:00 or after 12:00. */
   slot?: 'morning' | 'evening'
   /** Recurring weekly windows in which cleaning is impossible. */
@@ -109,6 +113,8 @@ export interface Settings {
   fridayEnd: number
   /** Minutes between consecutive jobs of the same worker (travel / equipment). */
   buffer: number
+  /** Extra minutes a cleaner needs to move to another floor (lift, stairs, equipment). */
+  floorChangeMin: number
   workDays: number[]
   /** Dates with no work at all (holidays, election days). */
   closedDates: string[]
@@ -137,6 +143,7 @@ export interface Job {
   earliest: number
   deadline: number
   priority: number
+  floor?: number
 }
 
 export interface Placement {

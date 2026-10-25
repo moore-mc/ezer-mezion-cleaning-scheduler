@@ -7,6 +7,8 @@ export const WEEK = DAY * 7
 const STEP = 5
 
 type Interval = [number, number]
+/** start, end, floor */
+type Busy = [number, number, number]
 
 // ───────────── date helpers ─────────────
 
@@ -45,7 +47,7 @@ export function overrideKey(weekStart: string, jobId: string): string {
 
 // ───────────── interval helpers ─────────────
 
-const overlaps = (a: Interval, b: Interval, pad = 0) => a[0] < b[1] + pad && a[1] + pad > b[0]
+const overlaps = (a: Interval, b: readonly number[], pad = 0) => a[0] < b[1] + pad && a[1] + pad > b[0]
 
 function cellOf(data: AppData, space: Space) {
   const type = data.types.find((t) => t.id === space.typeId)
@@ -187,6 +189,8 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
     })
   }
 
+  const floorOf = new Map(data.spaces.map((sp) => [sp.id, sp.floor ?? 0]))
+  for (const j of jobs) j.floor = floorOf.get(j.spaceId) ?? 0
   return jobs
 }
 
@@ -218,12 +222,13 @@ function shiftsFor(worker: Worker, data: AppData, weekStart: string): Interval[]
 interface WorkerState {
   worker: Worker
   shifts: Interval[]
-  busy: Interval[]
+  busy: Busy[]
   load: number[] // minutes assigned per day
+  floors: Set<number>[] // floors worked per day
 }
 
 function findStart(
-  st: WorkerState, job: Job, blocked: Interval[], buffer: number,
+  st: WorkerState, job: Job, blocked: Interval[], buffer: number, floorMin: number,
   opts: { ignoreBusy?: boolean; ignoreBlocked?: boolean } = {},
 ): number | null {
   const lo = Math.ceil(job.earliest / STEP) * STEP
@@ -232,18 +237,18 @@ function findStart(
     const iv: Interval = [t, t + job.duration]
     if (!st.shifts.some((s) => iv[0] >= s[0] && iv[1] <= s[1])) continue
     if (!opts.ignoreBlocked && blocked.some((b) => overlaps(iv, b))) continue
-    if (!opts.ignoreBusy && st.busy.some((b) => overlaps(iv, b, buffer))) continue
+    if (!opts.ignoreBusy && st.busy.some((b) => overlaps(iv, b, buffer + (b[2] !== (job.floor ?? 0) ? floorMin : 0)))) continue
     return t
   }
   return null
 }
 
-function diagnose(states: WorkerState[], job: Job, blocked: Interval[], buffer: number): string {
+function diagnose(states: WorkerState[], job: Job, blocked: Interval[], buffer: number, floorMin: number): string {
   if (job.deadline - job.duration < job.earliest) return 'החלון קצר מדי ביחס למשך הניקיון'
-  if (!states.some((s) => findStart(s, job, [], buffer, { ignoreBusy: true }) !== null)) {
+  if (!states.some((s) => findStart(s, job, [], buffer, floorMin, { ignoreBusy: true }) !== null)) {
     return 'אין עובד במשמרת בחלון הזמן הנדרש'
   }
-  if (!states.some((s) => findStart(s, job, blocked, buffer, { ignoreBusy: true }) !== null)) {
+  if (!states.some((s) => findStart(s, job, blocked, buffer, floorMin, { ignoreBusy: true }) !== null)) {
     return 'החלל חסום לניקיון בכל שעות המשמרות בחלון'
   }
   return 'כל העובדים תפוסים בחלון הזמן – נדרש עובד נוסף או הזזת משימה'
@@ -266,17 +271,21 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
   }
 
   const states: WorkerState[] = data.workers.map((w) => ({
-    worker: w, shifts: shiftsFor(w, data, weekStart), busy: [], load: Array(7).fill(0),
+    worker: w, shifts: shiftsFor(w, data, weekStart), busy: [], load: Array(7).fill(0), floors: Array.from({ length: 7 }, () => new Set<number>()),
   }))
   const stateById = new Map(states.map((s) => [s.worker.id, s]))
   const place = (st: WorkerState, job: Job, start: number) => {
-    st.busy.push([start, start + job.duration])
+    st.busy.push([start, start + job.duration, job.floor ?? 0])
     st.load[Math.min(6, Math.floor(start / DAY))] += job.duration
+    st.floors[Math.min(6, Math.floor(start / DAY))].add(job.floor ?? 0)
   }
 
   const placements: Placement[] = []
   const unscheduled: Unscheduled[] = []
   const buffer = data.settings.buffer
+  const floorMin = data.settings.floorChangeMin ?? 0
+  const FLOOR_PENALTY = 150 // cost of a floor change next to a candidate slot
+  const AFFINITY_PENALTY = 150
 
   // Manual pins first – they are respected even when they break a rule (flagged as warnings).
   const auto: Job[] = []
@@ -295,25 +304,44 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
   }
 
   // Greedy earliest-deadline-first: tightest windows first, then highest priority.
-  auto.sort((a, b) =>
-    (a.deadline - a.earliest - a.duration) - (b.deadline - b.earliest - b.duration) ||
-    b.priority - a.priority || a.earliest - b.earliest)
+  // Tight jobs (activity / event follow-ups) go first, earliest-deadline-first. The loose routine rounds are then ordered by
+  // time window and, inside one window, floor by floor – so a cleaner finishes a floor before walking to the next one.
+  const slack = (j: Job) => j.deadline - j.earliest - j.duration
+  const TIGHT = 180
+  const multiFloor = data.spaces.some((sp) => (sp.floor ?? 0) > 0)
+  auto.sort((a, b) => {
+    if (!multiFloor) return slack(a) - slack(b) || b.priority - a.priority || a.earliest - b.earliest // plain EDF
+    const ta = slack(a) <= TIGHT, tb = slack(b) <= TIGHT
+    if (ta !== tb) return ta ? -1 : 1
+    if (ta) return slack(a) - slack(b) || b.priority - a.priority || a.earliest - b.earliest
+    return a.earliest - b.earliest || a.deadline - b.deadline || (a.floor ?? 0) - (b.floor ?? 0) || a.spaceId.localeCompare(b.spaceId)
+  })
 
   for (const job of auto) {
     const blocked = blockedFor(spaceById.get(job.spaceId), weekStart)
     let best: { st: WorkerState; t: number; cost: number } | null = null
     for (const st of states) {
-      const t = findStart(st, job, blocked, buffer)
+      const t = findStart(st, job, blocked, buffer, floorMin)
       if (t === null) continue
       const dayLoad = st.load[Math.min(6, Math.floor(t / DAY))]
       const weekLoad = st.load.reduce((a, b) => a + b, 0)
       // pack = first-fit: fill the lowest-numbered worker first so the headcount stays minimal
+      // neighbours in the worker's timeline: a different floor right before/after costs a penalty
+      const f = job.floor ?? 0
+      let prev: Busy | undefined, next: Busy | undefined
+      for (const b of st.busy) {
+        if (b[1] <= t && (!prev || b[1] > prev[1])) prev = b
+        if (b[0] >= t + job.duration && (!next || b[0] < next[0])) next = b
+      }
+      const moves = (prev && prev[2] !== f ? 1 : 0) + (next && next[2] !== f ? 1 : 0)
+      const today = st.floors[Math.min(6, Math.floor(t / DAY))]
+      const newFloor = today.size > 0 && !today.has(f) ? AFFINITY_PENALTY : 0 // keep each cleaner on few floors per day
       const cost = opts.pack
-        ? states.indexOf(st) * 1e6 + t
-        : (t - job.earliest) * 0.25 + dayLoad * 0.6 + weekLoad * 0.5 // earlier start + balanced workload (day & week)
+        ? states.indexOf(st) * 1e6 + t + moves * FLOOR_PENALTY + newFloor
+        : (t - job.earliest) * 0.25 + dayLoad * 0.6 + weekLoad * 0.5 + moves * FLOOR_PENALTY + newFloor // earlier start + balanced workload + fewer floor changes
       if (!best || cost < best.cost) best = { st, t, cost }
     }
-    if (!best) { unscheduled.push({ job, reason: diagnose(states, job, blocked, buffer) }); continue }
+    if (!best) { unscheduled.push({ job, reason: diagnose(states, job, blocked, buffer, floorMin) }); continue }
     place(best.st, job, best.t)
     placements.push({
       jobId: job.id, workerId: best.st.worker.id, start: best.t, end: best.t + job.duration, pinned: false, warnings: [],
@@ -336,4 +364,21 @@ export function fmt(min: number): string {
 export function parseTime(s: string): number {
   const [h, m] = s.split(':').map(Number)
   return (h || 0) * 60 + (m || 0)
+}
+
+/** Floor changes between consecutive jobs of the same cleaner on the same day. */
+export function floorMoves(result: ScheduleResult, data: AppData): { total: number; byWorker: Record<string, number> } {
+  const floor = new Map(result.jobs.map((j) => [j.id, j.floor ?? 0]))
+  const byWorker: Record<string, number> = {}
+  let total = 0
+  for (const w of data.workers) {
+    const mine = result.placements.filter((p) => p.workerId === w.id)
+    let n = 0
+    for (let i = 1; i < mine.length; i++) {
+      if (Math.floor(mine[i].start / DAY) === Math.floor(mine[i - 1].start / DAY) && floor.get(mine[i].jobId) !== floor.get(mine[i - 1].jobId)) n++
+    }
+    byWorker[w.id] = n
+    total += n
+  }
+  return { total, byWorker }
 }
