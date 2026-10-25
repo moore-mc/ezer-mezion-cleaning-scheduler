@@ -53,20 +53,27 @@ const activity = (ids: string[], days: number[], start: number, end: number, lab
   ids.forEach((id) => days.forEach((d) => byId.get(id)?.activities.push({ id: `${id}-a${d}-${start}`, day: d, start, end, label, withinMin })))
 const thisWeekDay = (d: number) => addDays(weekStartOf(toISO(new Date())), d)
 
-// בני ברק – מעון גוטמאכר
-block(['bb-H1', 'bb-H2'], SUN_THU, h(12, 30), h(15), 'שנת צהריים')
-block(['bb-K1', 'bb-K2', 'bb-K3', 'bb-K4'], SUN_THU, h(9), h(11), 'פעילות בחצר')
+// בני ברק – מעון גוטמאכר. הנחה: המעון פעיל א׳–ה׳ 07:30–16:30 (שישי סגור) ואי אפשר לנקות את חללי הילדים בזמן הפעילות.
+block(['bb-H1', 'bb-H2'], SUN_THU, h(7, 30), h(16, 30), 'שעות פעילות המעון')
+block(['bb-K1', 'bb-K2', 'bb-K3', 'bb-K4'], SUN_THU, h(7, 30), h(16, 30), 'ילדים בחצר / שעות המעון')
+block(['bb-L1'], SUN_THU, h(7, 30), h(16), 'שימוש המעון בג׳ימבורי')
+block(['bb-A1'], SUN_THU, h(7, 45), h(8, 45), 'ארוחת בוקר של הילדים')
 block(['bb-E1', 'bb-E2', 'bb-E3'], [0, 2], h(9), h(10), 'ישיבת צוות')
-activity(['bb-A1'], SUN_THU, h(12), h(13), 'ארוחת צהריים', 90)
-activity(['bb-L1'], SUN_THU, h(16), h(19), 'פעילות אחה״צ בג׳ימבורי', 180)
+activity(['bb-A1'], SUN_THU, h(12), h(13), 'ארוחת צהריים של הילדים', 90)
+activity(['bb-L1'], SUN_THU, h(16), h(19), 'חוגי אחה״צ בג׳ימבורי', 180)
 // פתח תקווה – שושנים 12
+// הנחה: קבלת קהל והשאלת ציוד פתוחים א׳–ה׳ 09:00–13:00 / 09:00–14:00; המועדונית והחצר פעילות אחה״צ 15:00–18:00.
 block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')
+block(['pt-M1'], SUN_THU, h(9), h(14), 'שעות השאלת ציוד')
+block(['pt-K1'], SUN_THU, h(15), h(18), 'פעילות מועדונית בחצר')
 block(['pt-G1', 'pt-G2', 'pt-G3'], [1, 3], h(10), h(11), 'ישיבת צוות')
 activity(['pt-F1', 'pt-F2'], [1, 3], h(17), h(20), 'חוג / הרצאת ערב', 120)
 activity(['pt-F1'], [5], h(8), h(11), 'אירוע שישי בבוקר', 180)
 byId.get('pt-F2')?.events.push({ id: 'pt-F2-ev1', date: thisWeekDay(2), start: h(18), end: h(21), label: 'אירוע התרמה', cleanBefore: true, cleanAfterWithinMin: 60 })
 // רמת גן – שד׳ ירושלים
+// הנחה: קבלת קהל פתוחה 09:00–13:00, השאלת ציוד 09:00–14:00.
 block(['rg-F1'], SUN_THU, h(9), h(13), 'קבלת קהל')
+block(['rg-G1'], SUN_THU, h(9), h(14), 'שעות השאלת ציוד')
 block(['rg-D1'], SUN_THU, h(9), h(10), 'ישיבת בוקר')
 activity(['rg-H1'], [1], h(18), h(20, 30), 'אירוע ערב', 90)
 
