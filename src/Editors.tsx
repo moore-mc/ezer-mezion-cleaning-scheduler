@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AppData, Level, Space, Worker } from './types'
+import type { AppData, Level, Space, SpaceType, Worker } from './types'
 import { DAY_NAMES } from './scheduler'
 import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
 
@@ -10,36 +10,51 @@ const COLORS = ['#2f7f6f', '#c2703d', '#5b6bbf', '#b5476b', '#7a8f2a', '#2e86a8'
 // ───────────── matrix ─────────────
 
 export function MatrixView({ data, setData }: { data: AppData; setData: SetData }) {
-  const upd = (typeId: string, lvl: Level, key: 'minutes' | 'perWeek', v: number) =>
-    setData((d) => ({
-      ...d,
-      types: d.types.map((t) => t.id === typeId ? { ...t, matrix: { ...t.matrix, [lvl]: { ...t.matrix[lvl], [key]: v } } } : t),
-    }))
+  const patchType = (id: string, f: (t: SpaceType) => SpaceType) =>
+    setData((d) => ({ ...d, types: d.types.map((t) => t.id === id ? f(t) : t) }))
+  const upd = (typeId: string, lvl: Level, key: 'minutes' | 'roundsPerDay', v: number) =>
+    patchType(typeId, (t) => ({ ...t, matrix: { ...t.matrix, [lvl]: { ...t.matrix[lvl], [key]: v } } }))
   return (
     <Card title="מטריצת סוגי חללים × רמת פעילות"
       actions={<Btn onClick={() => {
         const name = prompt('שם סוג חלל חדש')
         if (!name) return
-        setData((d) => ({ ...d, types: [...d.types, { id: uid('t-'), name, matrix: { 1: { minutes: 30, perWeek: 2 }, 2: { minutes: 40, perWeek: 3 }, 3: { minutes: 50, perWeek: 5 } } }] }))
+        const c = (r: number) => ({ minutes: 30, roundsPerDay: r })
+        setData((d) => ({ ...d, types: [...d.types, { id: uid('t-'), name, weeklyMin: 0, monthlyMin: 0, matrix: { 1: c(1), 2: c(2), 3: c(5) } }] }))
       }}>+ סוג חלל</Btn>}>
-      <p className="muted">לכל שילוב של סוג חלל ורמת פעילות (1 = נמוכה, 3 = גבוהה): משך ניקיון בדקות, וכמה פעמים בשבוע. ניתן לעקוף כל ערך בנפרד בכל חלל.</p>
+      <p className="muted">
+        לכל סוג חלל: משך סבב ניקיון (הרשימה היומית) ומספר הסבבים ביום בכל רמת פעילות (1 = נמוכה, 3 = גבוהה), וכן משך הניקיון השבועי והחודשי.
+        רשימות המשימות והתדירויות לקוחות מקובץ "מטריצת ניקיון"; <b>משכי הזמן הם הערכה</b> (1.5 דק׳ למשימה יומית, 3 לשבועית, 4 לחודשית) וניתנים לעדכון כאן, או לעקיפה בכל חלל.
+      </p>
       <div className="table-wrap">
         <table className="matrix">
           <thead>
-            <tr><th>סוג חלל</th>{LEVELS.map((l) => <th key={l}><LevelPill level={l} /></th>)}<th /></tr>
+            <tr><th>סוג חלל</th>{LEVELS.map((l) => <th key={l}><LevelPill level={l} /></th>)}<th>שבועי</th><th>חודשי</th><th /></tr>
           </thead>
           <tbody>
             {data.types.map((t) => (
               <tr key={t.id}>
-                <td><input className="inp name" value={t.name} onChange={(e) => setData((d) => ({ ...d, types: d.types.map((x) => x.id === t.id ? { ...x, name: e.target.value } : x) }))} /></td>
+                <td>
+                  <input className="inp name" value={t.name} onChange={(e) => patchType(t.id, (x) => ({ ...x, name: e.target.value }))} />
+                  {t.tasks && (
+                    <details className="tasks">
+                      <summary>רשימות ניקיון ({t.tasks.daily.length} יומי · {t.tasks.weekly.length} שבועי · {t.tasks.monthly.length} חודשי · {t.tasks.yearly.length} שנתי)</summary>
+                      {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((k) => t.tasks![k].length > 0 && (
+                        <div key={k}><b>{{ daily: 'יומי', weekly: 'שבועי', monthly: 'חודשי', yearly: 'שנתי' }[k]}:</b> {t.tasks![k].join(' · ')}</div>
+                      ))}
+                    </details>
+                  )}
+                </td>
                 {LEVELS.map((l) => (
                   <td key={l}>
                     <div className="cellgrid">
-                      <NumInput value={t.matrix[l].minutes} min={5} onChange={(v) => upd(t.id, l, 'minutes', v)} suffix="דק׳" />
-                      <NumInput value={t.matrix[l].perWeek} max={7} onChange={(v) => upd(t.id, l, 'perWeek', v)} suffix="×/שבוע" />
+                      <NumInput value={t.matrix[l].minutes} min={0} onChange={(v) => upd(t.id, l, 'minutes', v)} suffix="דק׳ לסבב" />
+                      <NumInput value={t.matrix[l].roundsPerDay} max={12} onChange={(v) => upd(t.id, l, 'roundsPerDay', v)} suffix="סבבים/יום" />
                     </div>
                   </td>
                 ))}
+                <td><NumInput value={t.weeklyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, weeklyMin: v }))} suffix="דק׳" /></td>
+                <td><NumInput value={t.monthlyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, monthlyMin: v }))} suffix="דק׳" /></td>
                 <td>
                   {!data.spaces.some((s) => s.typeId === t.id) &&
                     <Btn kind="danger" onClick={() => setData((d) => ({ ...d, types: d.types.filter((x) => x.id !== t.id) }))}>מחק</Btn>}
@@ -97,7 +112,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
             <div className="space-h" onClick={() => setOpen(isOpen ? null : s.id)}>
               <div>
                 <b>{s.name}</b> <LevelPill level={s.level} />
-                <small>{type?.name} · {s.minutesOverride ?? cell?.minutes} דק׳ × {s.perWeekOverride ?? cell?.perWeek} בשבוע · {s.blocked.length} חסימות · {s.activities.length} פעילויות · {s.events.length} אירועים</small>
+                <small>{type?.name} · {s.minutesOverride ?? cell?.minutes} דק׳ × {s.roundsOverride ?? cell?.roundsPerDay} סבבים ביום · {s.blocked.length} חסימות · {s.activities.length} פעילויות · {s.events.length} אירועים</small>
               </div>
               <span className="chev">{isOpen ? '▲' : '▼'}</span>
             </div>
@@ -116,7 +131,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
                     </select>
                   </label>
                   <label>עקיפת משך<NumInput value={s.minutesOverride ?? 0} onChange={(v) => patch(s.id, { minutesOverride: v || undefined })} suffix="דק׳ (0=מטריצה)" /></label>
-                  <label>עקיפת תדירות<NumInput value={s.perWeekOverride ?? 0} max={7} onChange={(v) => patch(s.id, { perWeekOverride: v || undefined })} suffix="×/שבוע (0=מטריצה)" /></label>
+                  <label>עקיפת סבבים<NumInput value={s.roundsOverride ?? 0} max={12} onChange={(v) => patch(s.id, { roundsOverride: v || undefined })} suffix="ביום (0=מטריצה)" /></label>
                 </div>
 
                 <h4>🚫 מגבלות – מתי אי אפשר לנקות <small>(שבועי קבוע)</small></h4>
@@ -249,6 +264,7 @@ export function SettingsView({ data, setData, reset, siteId }: { data: AppData; 
         <div className="row wrap">
           <label>תחילת יום עבודה<TimeInput value={st.dayStart} onChange={(v) => set({ dayStart: v })} /></label>
           <label>סוף יום עבודה<TimeInput value={st.dayEnd} onChange={(v) => set({ dayEnd: v })} /></label>
+          <label>סוף יום שישי<TimeInput value={st.fridayEnd} onChange={(v) => set({ fridayEnd: v })} /></label>
           <label>מרווח בין משימות<NumInput value={st.buffer} onChange={(v) => set({ buffer: v })} suffix="דק׳" /></label>
         </div>
         <div className="row wrap">

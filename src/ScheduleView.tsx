@@ -5,7 +5,7 @@ import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
 
 const T0 = 5 * 60 // timeline starts 05:00
 const T1 = 24 * 60
-const PX = 96 // px per hour
+const PX = 150 // px per hour
 const x = (min: number) => ((min - T0) / 60) * PX
 
 const KIND_LABEL = { routine: 'שוטף', activity: 'אחרי פעילות', event: 'אירוע מיוחד', manual: 'ידני' }

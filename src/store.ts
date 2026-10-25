@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import type { AppData } from './types'
 import { seed } from './seed'
 
-const KEY = 'ezer-cleaning-scheduler-v3'
+const KEY = 'ezer-cleaning-scheduler-v4'
 
 function load(): AppData {
   try {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const d = JSON.parse(raw) as AppData
+      d.settings = { ...seed.settings, ...d.settings }
       // keep user edits but refresh site names (fixes the earlier misspelling)
       return { ...d, sites: d.sites.map((x) => ({ ...x, name: seed.sites.find((y) => y.id === x.id)?.name ?? x.name })) }
     }

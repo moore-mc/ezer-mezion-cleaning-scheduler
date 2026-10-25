@@ -11,14 +11,27 @@ export interface TimeWindow {
 
 /** Cell of the matrix: how long and how often a space of this type / level is cleaned. */
 export interface MatrixCell {
+  /** Minutes for one cleaning round of the daily list. */
   minutes: number
-  perWeek: number
+  /** How many rounds of the daily list per working day. */
+  roundsPerDay: number
+}
+
+export interface TaskLists {
+  daily: string[]
+  weekly: string[]
+  monthly: string[]
+  yearly: string[]
 }
 
 export interface SpaceType {
   id: string
   name: string
   matrix: Record<Level, MatrixCell>
+  /** Minutes for the once-a-week list / once-a-month list (0 = none). */
+  weeklyMin: number
+  monthlyMin: number
+  tasks?: TaskLists
 }
 
 /** Daily activity in a space; the space must be cleaned after it ends. */
@@ -51,9 +64,9 @@ export interface Space {
   name: string
   typeId: string
   level: Level
-  /** Optional per-space overrides of the matrix cell. */
+  /** Optional per-space overrides of the matrix cell (rounds per day / minutes per round). */
   minutesOverride?: number
-  perWeekOverride?: number
+  roundsOverride?: number
   /** Recurring weekly windows in which cleaning is impossible. */
   blocked: TimeWindow[]
   activities: Activity[]
@@ -90,6 +103,8 @@ export interface Override {
 export interface Settings {
   dayStart: number
   dayEnd: number
+  /** Friday ends earlier (before Shabbat). */
+  fridayEnd: number
   /** Minutes between consecutive jobs of the same worker (travel / equipment). */
   buffer: number
   workDays: number[]

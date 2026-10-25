@@ -49,10 +49,12 @@ const overlaps = (a: Interval, b: Interval, pad = 0) => a[0] < b[1] + pad && a[1
 
 function cellOf(data: AppData, space: Space) {
   const type = data.types.find((t) => t.id === space.typeId)
-  const base = type?.matrix[space.level] ?? { minutes: 30, perWeek: 1 }
+  const base = type?.matrix[space.level] ?? { minutes: 30, roundsPerDay: 1 }
   return {
     minutes: space.minutesOverride ?? base.minutes,
-    perWeek: space.perWeekOverride ?? base.perWeek,
+    rounds: space.roundsOverride ?? base.roundsPerDay,
+    weeklyMin: type?.weeklyMin ?? 0,
+    monthlyMin: type?.monthlyMin ?? 0,
   }
 }
 
@@ -75,20 +77,42 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
   for (const space of data.spaces) {
     const cell = cellOf(data, space)
 
-    // 1. Routine cleaning derived from the matrix, spread evenly across open days.
-    const n = Math.min(cell.perWeek, openDays.length)
-    for (let i = 0; i < n; i++) {
-      const day = openDays[Math.floor(((i + 0.5) * openDays.length) / n)]
-      jobs.push({
-        id: `r|${space.id}|${day}`,
-        spaceId: space.id,
-        kind: 'routine',
-        label: 'ניקיון שוטף',
-        duration: cell.minutes,
-        earliest: day * DAY + data.settings.dayStart,
-        deadline: day * DAY + data.settings.dayEnd,
-        priority: 10 + space.level * 3,
-      })
+    // 1. Daily rounds from the matrix: the day is cut into equal slots, one slot per round.
+    const { dayStart } = data.settings
+    const endOf = (day: number) => (day === 5 ? data.settings.fridayEnd : data.settings.dayEnd)
+    if (cell.minutes > 0 && cell.rounds > 0) {
+      for (const day of openDays) {
+        const dayEnd = endOf(day)
+        const slot = (dayEnd - dayStart) / cell.rounds
+        for (let i = 0; i < cell.rounds; i++) {
+          jobs.push({
+            id: `r|${space.id}|${day}|${i}`,
+            spaceId: space.id,
+            kind: 'routine',
+            label: cell.rounds > 1 ? `סבב ${i + 1}/${cell.rounds}` : 'ניקיון יומי',
+            duration: cell.minutes,
+            earliest: day * DAY + Math.round(dayStart + i * slot),
+            deadline: day * DAY + Math.round(dayStart + (i + 1) * slot),
+            priority: 10 + space.level * 3,
+          })
+        }
+      }
+    }
+
+    // 1b. Weekly list once a week; monthly list once every four weeks (spread by a per-space offset).
+    if (openDays.length) {
+      const h = [...space.id].reduce((a, c) => a + c.charCodeAt(0), 0)
+      const weekNo = Math.floor(parseISO(weekStart).getTime() / (7 * 86400000))
+      if (cell.weeklyMin > 0) {
+        const day = openDays[h % openDays.length]
+        jobs.push({ id: `w|${space.id}`, spaceId: space.id, kind: 'routine', label: 'ניקיון שבועי', duration: cell.weeklyMin,
+          earliest: day * DAY + dayStart, deadline: day * DAY + endOf(day), priority: 8 })
+      }
+      if (cell.monthlyMin > 0 && (weekNo + h) % 4 === 0) {
+        const day = openDays[(h + 1) % openDays.length]
+        jobs.push({ id: `mo|${space.id}`, spaceId: space.id, kind: 'routine', label: 'ניקיון חודשי', duration: cell.monthlyMin,
+          earliest: day * DAY + dayStart, deadline: day * DAY + endOf(day), priority: 6 })
+      }
     }
 
     // 2. Mandatory cleaning after daily activities.

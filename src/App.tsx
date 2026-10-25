@@ -22,7 +22,9 @@ export default function App() {
   const [weekStart, setWeekStart] = useState(() => weekStartOf(new Date().toISOString().slice(0, 10)))
 
   const [siteId, setSiteId] = useState(() => {
-    try { return localStorage.getItem('ezer-site') || data.sites[0].id } catch { return data.sites[0].id }
+    let id = ''
+    try { id = localStorage.getItem('ezer-site') ?? '' } catch { /* ignore */ }
+    return data.sites.some((x) => x.id === id) ? id : data.sites[0].id
   })
   const changeSite = (id: string) => { setSiteId(id); try { localStorage.setItem('ezer-site', id) } catch { /* ignore */ } }
   const siteData = useMemo(() => {
