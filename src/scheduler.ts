@@ -220,7 +220,8 @@ function diagnose(states: WorkerState[], job: Job, blocked: Interval[], buffer: 
 
 // ───────────── main ─────────────
 
-export function schedule(data: AppData, weekStart: string): ScheduleResult {
+/** `pack` = ignore workload balancing and always take the earliest slot (used for staffing estimates). */
+export function schedule(data: AppData, weekStart: string, opts: { pack?: boolean } = {}): ScheduleResult {
   const allJobs = generateJobs(data, weekStart)
   const spaceById = new Map(data.spaces.map((s) => [s.id, s]))
   const ovr = (id: string): Override | undefined => data.overrides[overrideKey(weekStart, id)]
@@ -275,7 +276,9 @@ export function schedule(data: AppData, weekStart: string): ScheduleResult {
       if (t === null) continue
       const dayLoad = st.load[Math.min(6, Math.floor(t / DAY))]
       const weekLoad = st.load.reduce((a, b) => a + b, 0)
-      const cost = (t - job.earliest) * 0.25 + dayLoad * 0.6 + weekLoad * 0.5 // earlier start + balanced workload (day & week)
+      const cost = opts.pack
+        ? t
+        : (t - job.earliest) * 0.25 + dayLoad * 0.6 + weekLoad * 0.5 // earlier start + balanced workload (day & week)
       if (!best || cost < best.cost) best = { st, t, cost }
     }
     if (!best) { unscheduled.push({ job, reason: diagnose(states, job, blocked, buffer) }); continue }
