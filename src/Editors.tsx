@@ -29,7 +29,7 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
       <div className="table-wrap">
         <table className="matrix">
           <thead>
-            <tr><th>סוג חלל</th>{LEVELS.map((l) => <th key={l}><LevelPill level={l} /></th>)}<th>שבועי</th><th>חודשי</th><th /></tr>
+            <tr><th>סוג חלל</th>{LEVELS.map((l) => <th key={l}><LevelPill level={l} /></th>)}<th>שבועי</th><th>חודשי</th></tr>
           </thead>
           <tbody>
             {data.types.map((t) => (
@@ -55,10 +55,6 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
                 ))}
                 <td><NumInput value={t.weeklyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, weeklyMin: v }))} suffix="דק׳" /></td>
                 <td><NumInput value={t.monthlyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, monthlyMin: v }))} suffix="דק׳" /></td>
-                <td>
-                  {!data.spaces.some((s) => s.typeId === t.id) &&
-                    <Btn kind="danger" onClick={() => setData((d) => ({ ...d, types: d.types.filter((x) => x.id !== t.id) }))}>מחק</Btn>}
-                </td>
               </tr>
             ))}
           </tbody>
