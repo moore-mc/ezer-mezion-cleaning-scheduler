@@ -92,7 +92,11 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
     if (cell.minutes > 0 && cell.rounds > 0) {
       for (const day of openDays) {
         const dayEnd = endOf(day)
-        const slot = (dayEnd - dayStart) / cell.rounds
+        // repeated rounds happen while the site is open; a single round may use the whole working day
+        const hrs = data.sites.find((x) => x.id === space.siteId)?.hours
+        const rFrom = cell.rounds > 1 && hrs ? Math.max(dayStart, hrs.start) : dayStart
+        const rTo = cell.rounds > 1 && hrs ? Math.min(dayEnd, Math.max(hrs.end, rFrom + 60)) : dayEnd
+        const slot = (rTo - rFrom) / cell.rounds
         for (let i = 0; i < cell.rounds; i++) {
           jobs.push({
             id: `r|${space.id}|${day}|${i}`,
@@ -100,8 +104,8 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
             kind: 'routine',
             label: cell.rounds > 1 ? `סבב ${i + 1}/${cell.rounds}` : 'ניקיון יומי',
             duration: cell.minutes,
-            earliest: day * DAY + (cell.rounds === 1 ? pick(day, dayStart, dayEnd)[0] : Math.round(dayStart + i * slot)),
-            deadline: day * DAY + (cell.rounds === 1 ? pick(day, dayStart, dayEnd)[1] : Math.round(dayStart + (i + 1) * slot)),
+            earliest: day * DAY + (cell.rounds === 1 ? pick(day, dayStart, dayEnd)[0] : Math.round(rFrom + i * slot)),
+            deadline: day * DAY + (cell.rounds === 1 ? pick(day, dayStart, dayEnd)[1] : Math.round(rFrom + (i + 1) * slot)),
             priority: 10 + space.level * 3,
           })
         }
@@ -280,6 +284,9 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
     st.floors[Math.min(6, Math.floor(start / DAY))].add(job.floor ?? 0)
   }
 
+  // two cleaners never work in the same space at the same time
+  const spaceBusy = new Map<string, Interval[]>()
+  const markSpace = (spaceId: string, a: number, b: number) => spaceBusy.set(spaceId, [...(spaceBusy.get(spaceId) ?? []), [a, b]])
   const placements: Placement[] = []
   const unscheduled: Unscheduled[] = []
   const buffer = data.settings.buffer
@@ -300,6 +307,7 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
     if (st.busy.some((b) => overlaps(iv, b, 0))) warnings.push('חפיפה עם משימה אחרת של העובד')
     if (iv[0] < job.earliest || iv[1] > job.deadline) warnings.push('מחוץ לחלון הזמן הנדרש')
     place(st, job, pin.start)
+    markSpace(job.spaceId, pin.start, iv[1])
     placements.push({ jobId: job.id, workerId: st.worker.id, start: pin.start, end: iv[1], pinned: true, warnings })
   }
 
@@ -321,7 +329,7 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
     const blocked = blockedFor(spaceById.get(job.spaceId), weekStart)
     let best: { st: WorkerState; t: number; cost: number } | null = null
     for (const st of states) {
-      const t = findStart(st, job, blocked, buffer, floorMin)
+      const t = findStart(st, job, blocked.concat(spaceBusy.get(job.spaceId) ?? []), buffer, floorMin)
       if (t === null) continue
       const dayLoad = st.load[Math.min(6, Math.floor(t / DAY))]
       const weekLoad = st.load.reduce((a, b) => a + b, 0)
@@ -343,6 +351,7 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
     }
     if (!best) { unscheduled.push({ job, reason: diagnose(states, job, blocked, buffer, floorMin) }); continue }
     place(best.st, job, best.t)
+    markSpace(job.spaceId, best.t, best.t + job.duration)
     placements.push({
       jobId: job.id, workerId: best.st.worker.id, start: best.t, end: best.t + job.duration, pinned: false, warnings: [],
     })

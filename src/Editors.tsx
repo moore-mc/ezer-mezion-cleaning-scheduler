@@ -419,12 +419,21 @@ function FloorsCard({ data, setData, siteId }: { data: AppData; setData: SetData
     }))
   const count = (i: number) => data.spaces.filter((sp) => sp.siteId === siteId && (sp.floor ?? 0) === i).length
   return (
-    <Card title={`קומות בסניף (${site.floors.length})`}
+    <Card title={`קומות ושעות פעילות – ${site.name}`}
       actions={<Btn onClick={() => setFloors([...site.floors, `קומה ${site.floors.length}`])}>+ הוסף קומה</Btn>}>
       <p className="muted">
         המערכת מנסה שעובד ינקה קומה אחת לפני שהוא עובר לאחרת. כל מעבר בין קומות לוקח זמן ({data.settings.floorChangeMin} דק׳, בהגדרות).
         {site.floors.length === 1 && ' בסניף עם קומה אחת אין השפעה; הוסיפו קומות כדי לשייך חללים לקומות.'}
       </p>
+      <div className="row wrap" style={{ marginBottom: 10 }}>
+        <label>שעות פעילות הסניף – מתחילת היום
+          <TimeInput value={site.hours?.start ?? data.settings.dayStart} onChange={(v) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, hours: { start: v, end: x.hours?.end ?? d.settings.dayEnd } } : x) }))} />
+        </label>
+        <label>עד
+          <TimeInput value={site.hours?.end ?? data.settings.dayEnd} onChange={(v) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, hours: { start: x.hours?.start ?? d.settings.dayStart, end: v } } : x) }))} />
+        </label>
+        <small className="muted">סבבי ניקיון חוזרים (רמה 2–3) מתפזרים בתוך השעות האלה</small>
+      </div>
       <div className="row wrap">
         {site.floors.map((f, i) => (
           <span className="floorchip" key={i}>

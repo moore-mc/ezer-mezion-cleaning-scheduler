@@ -58,6 +58,8 @@ export interface Site {
   name: string
   /** Floor names, index = floor number (a single-floor site has one entry). */
   floors: string[]
+  /** Opening hours: repeated cleaning rounds (activity level 2-3) are spread inside them. Default: whole working day. */
+  hours?: { start: number; end: number }
 }
 
 export interface Space {

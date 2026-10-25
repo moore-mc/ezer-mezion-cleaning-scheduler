@@ -40,9 +40,9 @@ for (const t of types) {
 }
 
 const sites = [
-  { id: 'bb', name: 'בני ברק – גוטמאכר 8 (מעון)', floors: ['קרקע', 'קומה 1', 'קומה 2', 'קומה 3'] },
-  { id: 'pt', name: 'פתח תקווה – שושנים 12', floors: ['קומה אחת'] },
-  { id: 'rg', name: 'רמת גן – שד׳ ירושלים', floors: ['קומה אחת'] },
+  { id: 'bb', name: 'בני ברק – גוטמאכר 8 (מעון)', floors: ['קרקע', 'קומה 1', 'קומה 2', 'קומה 3'], hours: { start: h(7, 30), end: h(17) } },
+  { id: 'pt', name: 'פתח תקווה – שושנים 12', floors: ['קומה אחת'], hours: { start: h(8), end: h(18) } },
+  { id: 'rg', name: 'רמת גן – שד׳ ירושלים', floors: ['קומה אחת'], hours: { start: h(8), end: h(17) } },
 ]
 
 // Gutmacher 8 has 4 floors. The file does not say what is where, so this is an illustrative layout (editable):
@@ -77,9 +77,11 @@ const thisWeekDay = (d: number) => addDays(weekStartOf(toISO(new Date())), d)
 block(['bb-H1', 'bb-H2'], SUN_THU, h(7, 30), h(16, 30), 'שעות פעילות המעון')
 block(['bb-K1', 'bb-K2', 'bb-K3', 'bb-K4'], SUN_THU, h(7, 30), h(16, 30), 'ילדים בחצר / שעות המעון')
 block(['bb-L1'], SUN_THU, h(7, 30), h(19), 'שעות פעילות הג׳ימבורי')
-block(['bb-A1'], SUN_THU, h(7, 45), h(8, 45), 'ארוחת בוקר של הילדים')
 block(['bb-E1', 'bb-E2', 'bb-E3'], [0, 2], h(9), h(10), 'ישיבת צוות')
+// מטבח המעון: ניקיון חובה אחרי כל ארוחה (המטבח חסום בזמן הארוחה עצמה).
+activity(['bb-A1'], SUN_THU, h(7, 45), h(8, 45), 'ארוחת בוקר של הילדים', 90)
 activity(['bb-A1'], SUN_THU, h(12), h(13), 'ארוחת צהריים של הילדים', 90)
+activity(['bb-A1'], SUN_THU, h(15, 30), h(16, 15), 'ארוחת אחה״צ של הילדים', 90)
 // פתח תקווה – שושנים 12
 // הנחה: קבלת קהל והשאלת ציוד פתוחים א׳–ה׳ 09:00–13:00 / 09:00–14:00; המועדונית והחצר פעילות אחה״צ 15:00–18:00.
 block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')
@@ -104,17 +106,20 @@ const w = (id: string, siteId: string, name: string, color: string, start: numbe
 const morning = { start: h(7), end: h(12) }
 
 // Demo workers (the file has no staff data) – use the "how many cleaners" tab for a real estimate.
+const FRI_MORNING = { start: h(6), end: h(14) }
 const workers: Worker[] = [
-  w('w1', 'bb', 'רונית', '#2f7f6f', h(6), h(14), { start: h(6), end: h(14) }),
-  w('w2', 'bb', 'מרים', '#5b6bbf', h(6), h(14), { start: h(6), end: h(14) }),
-  w('w3', 'bb', 'יוסי', '#c2703d', h(14), h(22), null),
-  w('w4', 'bb', 'נועה', '#b5476b', h(14), h(22), null),
-  w('w11', 'bb', 'עמית', '#2e86a8', h(10), h(18), { start: h(8), end: h(14) }),
-  w('w5', 'pt', 'דנה', '#b5476b', h(6), h(14), { start: h(6), end: h(14) }),
-  w('w6', 'pt', 'אבי', '#7a8f2a', h(6), h(14), { start: h(6), end: h(14) }),
-  w('w7', 'pt', 'שרה', '#2e86a8', h(14), h(22), null),
-  w('w8', 'pt', 'דוד', '#c2703d', h(14), h(22), null),
-  w('w9', 'rg', 'חנן', '#8a6bbf', h(6), h(14), { start: h(6), end: h(14) }),
+  // בני ברק: Friday is a compressed 06–14 day, so everybody (also the evening crew) works it.
+  w('w1', 'bb', 'רונית', '#2f7f6f', h(6), h(14), FRI_MORNING),
+  w('w2', 'bb', 'מרים', '#5b6bbf', h(9), h(17), FRI_MORNING),
+  w('w3', 'bb', 'עמית', '#2e86a8', h(6), h(14), FRI_MORNING),
+  w('w4', 'bb', 'יוסי', '#c2703d', h(9), h(17), FRI_MORNING),
+  w('w5', 'bb', 'נועה', '#b5476b', h(14), h(22), FRI_MORNING),
+  // פתח תקווה
+  w('w6', 'pt', 'דנה', '#b5476b', h(6), h(14), FRI_MORNING),
+  w('w7', 'pt', 'אבי', '#7a8f2a', h(8), h(16), FRI_MORNING),
+  w('w8', 'pt', 'שרה', '#2e86a8', h(14), h(22), FRI_MORNING),
+  // רמת גן
+  w('w9', 'rg', 'חנן', '#8a6bbf', h(6), h(14), FRI_MORNING),
   w('w10', 'rg', 'ליאת', '#2e86a8', h(14), h(22), null),
 ]
 
