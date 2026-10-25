@@ -153,3 +153,22 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .tasks { margin-top: 6px; font-size: 12px; color: var(--muted); max-width: 420px; }
 .tasks summary { cursor: pointer; color: var(--brand); }
 .tasks div { margin-top: 4px; line-height: 1.5; }
+
+.viewbar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--bg); border-radius: 9px; padding: 3px; }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 4px 12px; border-radius: 7px; font-weight: 500; }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 6px; background: var(--bg); border-radius: 12px; padding: 8px; }
+.col header { border-bottom: 3px solid; padding: 4px 4px 8px; display: flex; flex-direction: column; margin-bottom: 2px; }
+.col header i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; }
+.col header small { color: var(--muted); }
+.col .pad { padding: 8px; }
+.item { display: flex; gap: 10px; align-items: center; text-align: start; border: 0; border-radius: 9px; padding: 7px 10px; color: var(--ink); width: 100%; }
+.item .t { font-weight: 600; font-size: 13px; white-space: nowrap; min-width: 92px; direction: rtl; }
+.item .n { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.item .n small { color: var(--muted); }
+.item.sel { outline: 2px solid var(--brand); } .item.warn { outline: 2px dashed var(--warn); }
+
+.ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
+.item .t { direction: ltr; unicode-bidi: isolate; text-align: start; }

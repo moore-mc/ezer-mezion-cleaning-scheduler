@@ -19,7 +19,7 @@ export default function PrintView({ data, weekStart, result, siteName }: { siteN
               <table><tbody>
                 {rows.filter((r) => r.ps.length).map(({ w, ps }) => (
                   <tr key={w.id}><th>{w.name}</th><td>{ps.map((p) => (
-                    <div key={p.jobId}><b>{fmt(p.start)}–{fmt(p.end)}</b> · {space(job.get(p.jobId)!.spaceId)} · {job.get(p.jobId)!.label}{p.pinned && ' 📌'}</div>
+                    <div key={p.jobId}><b className="ltr">{fmt(p.start)}–{fmt(p.end)}</b> · {space(job.get(p.jobId)!.spaceId)} · {job.get(p.jobId)!.label}{p.pinned && ' 📌'}</div>
                   ))}</td></tr>
                 ))}
               </tbody></table>

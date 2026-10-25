@@ -55,7 +55,7 @@ export default function StaffingView({ data, weekStart, siteName }: { data: AppD
                   <td>
                     {d.blocks.length === 0 ? <span className="muted">אין עבודה</span> : d.blocks.map((b, i) => (
                       <div key={i} className="blockline">
-                        <b>{fmt(b.start)}–{fmt(b.end)}</b>
+                        <b className="ltr">{fmt(b.start)}–{fmt(b.end)}</b>
                         <span className="chip">{b.workers} {b.workers === 1 ? 'עובד' : 'עובדים'}</span>
                         <small className="muted">{hrs(b.workMin)} ש׳ ניקיון</small>
                       </div>

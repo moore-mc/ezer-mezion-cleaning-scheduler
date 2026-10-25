@@ -24,6 +24,10 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
     return i >= 0 && i < 7 ? i : 0
   })
   const [selected, setSelected] = useState<string | null>(null)
+  const [view, setView] = useState<'list' | 'timeline'>(() => {
+    try { return localStorage.getItem('ezer-view') === 'timeline' ? 'timeline' : 'list' } catch { return 'list' }
+  })
+  const changeView = (v: 'list' | 'timeline') => { setView(v); try { localStorage.setItem('ezer-view', v) } catch { /* ignore */ } }
 
   const jobById = useMemo(() => new Map(result.jobs.map((j) => [j.id, j])), [result])
   const spaceName = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? '—'
@@ -59,8 +63,41 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
         })}
       </div>
 
-      <Card title={`לוח יומי – יום ${DAY_NAMES[day]}`} actions={<Legend />}>
-        {closed ? <p className="muted">היום מסומן כיום סגור (חג / ללא עבודה).</p> : (
+      <Card title={`לוח יומי – יום ${DAY_NAMES[day]}`} actions={<div className="viewbar">
+        <Legend />
+        <div className="seg" role="group" aria-label="תצוגה">
+          <button className={view === 'list' ? 'on' : ''} onClick={() => changeView('list')}>רשימה</button>
+          <button className={view === 'timeline' ? 'on' : ''} onClick={() => changeView('timeline')}>ציר זמן</button>
+        </div>
+      </div>}>
+        {closed ? <p className="muted">היום מסומן כיום סגור (חג / ללא עבודה).</p> : view === 'list' ? (
+          <div className="cols" style={{ ['--n' as string]: data.workers.length }}>
+            {data.workers.map((w) => {
+              const shift = w.shifts[day]
+              const absent = w.absences.includes(addDays(weekStart, day))
+              const mine = result.placements.filter((p) => p.workerId === w.id && Math.floor(p.start / DAY) === day)
+              const mins = mine.reduce((a, p) => a + p.end - p.start, 0)
+              return (
+                <div className="col" key={w.id}>
+                  <header style={{ borderColor: w.color }}>
+                    <b><i style={{ background: w.color }} />{w.name}</b>
+                    <small>{absent ? 'נעדר' : shift ? <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span> : 'חופש'} · {mine.length} משימות · {(mins / 60).toFixed(1)} ש׳</small>
+                  </header>
+                  {mine.length === 0 && <p className="muted pad">אין משימות</p>}
+                  {mine.map((p) => {
+                    const j = jobById.get(p.jobId)!
+                    return (
+                      <button key={p.jobId} className={`item k-${j.kind} ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
+                        <span className="t">{fmt(p.start)}–{fmt(p.end)}</span>
+                        <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{j.label} · {j.duration} דק׳</small></span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        ) : (
           <div className="tl-scroll">
             <div className="tl" style={{ width: x(T1) + 120, ['--px' as string]: `${PX}px` }}>
               <div className="tl-head" style={{ marginRight: 120 }}>
@@ -75,7 +112,7 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
                 return (
                   <div className="lane" key={w.id}>
                     <div className="lane-name"><i style={{ background: w.color }} />{w.name}
-                      <small>{absent ? 'נעדר' : shift ? `${fmt(shift.start)}–${fmt(shift.end)}` : 'חופש'}</small></div>
+                      <small>{absent ? 'נעדר' : shift ? <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span> : 'חופש'}</small></div>
                     <div className="lane-track" style={{ width: x(T1) }}>
                       {shift && !absent && <div className="shift" style={{ right: x(shift.start), width: x(shift.end) - x(shift.start) }} />}
                       {mine.map((p) => {
@@ -107,7 +144,7 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
               {result.unscheduled.map(({ job, reason }) => (
                 <li key={job.id} className={selected === job.id ? 'sel' : ''} onClick={() => { setSelected(job.id); setDay(Math.floor(job.earliest / DAY)) }}>
                   <b>{spaceName(job.spaceId)}</b> · {job.label}
-                  <small>{DAY_NAMES[Math.floor(job.earliest / DAY)]} {fmt(job.earliest)}–{fmt(job.deadline)} · {job.duration} דק׳</small>
+                  <small>{DAY_NAMES[Math.floor(job.earliest / DAY)]} <span className="ltr">{fmt(job.earliest)}–{fmt(job.deadline)}</span> · {job.duration} דק׳</small>
                   <em className="bad">{reason}</em>
                 </li>
               ))}
@@ -172,9 +209,9 @@ function JobPanel({ data, job, placement, unscheduled, override, spaceName, onCl
         <button className="x" onClick={onClose} aria-label="סגור">×</button>
       </header>
       <dl>
-        <dt>חלון נדרש</dt><dd>{DAY_NAMES[Math.floor(job.earliest / DAY)]} {fmt(job.earliest)} – {job.deadline - job.earliest >= DAY ? `${DAY_NAMES[Math.floor(job.deadline / DAY) % 7]} ` : ''}{fmt(job.deadline)}</dd>
+        <dt>חלון נדרש</dt><dd>{DAY_NAMES[Math.floor(job.earliest / DAY)]} <span className="ltr">{fmt(job.earliest)} – {fmt(job.deadline)}</span>{job.deadline - job.earliest >= DAY ? ` (עד ${DAY_NAMES[Math.floor(job.deadline / DAY) % 7]})` : ''}</dd>
         <dt>שיבוץ נוכחי</dt>
-        <dd>{skipped ? 'דולג ידנית' : placement ? `${data.workers.find((w) => w.id === placement.workerId)?.name} · ${fmt(placement.start)}–${fmt(placement.end)}` : 'לא שובץ'}</dd>
+        <dd>{skipped ? 'דולג ידנית' : placement ? <>{data.workers.find((w) => w.id === placement.workerId)?.name} · <span className="ltr">{fmt(placement.start)}–{fmt(placement.end)}</span></> : 'לא שובץ'}</dd>
       </dl>
       {unscheduled && <p className="bad box">{unscheduled}</p>}
       {placement?.warnings.map((w) => <p key={w} className="warnbox">⚠ {w}</p>)}
