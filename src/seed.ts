@@ -30,11 +30,12 @@ const types: SpaceType[] = FILE_TYPES.map((t) => {
 })
 
 // Daycare rooms and the gymboree are cleaned ONCE a day (before the kids arrive / after they leave) at every activity
-// level, and the full clean takes ~55 min – so they override the generic per-level rounds.
-const ONCE_A_DAY = ['גן / מעון', "ג'ימבורי"]
+// level, and the full clean takes ~60 min – so they override the generic per-level rounds.
+const ONCE_A_DAY: Record<string, number> = { 'גן / מעון': 60, "ג'ימבורי": 60, 'חצר / גינת משחקים': 30 }
 for (const t of types) {
-  if (!ONCE_A_DAY.includes(t.name)) continue
-  const cell = { minutes: 55, roundsPerDay: 1 }
+  const minutes = ONCE_A_DAY[t.name]
+  if (!minutes) continue
+  const cell = { minutes, roundsPerDay: 1 }
   t.matrix = { 1: { ...cell }, 2: { ...cell }, 3: { ...cell } }
 }
 

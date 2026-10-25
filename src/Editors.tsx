@@ -134,6 +134,13 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
                   </label>
                   <label>עקיפת משך<NumInput value={s.minutesOverride ?? 0} onChange={(v) => patch(s.id, { minutesOverride: v || undefined })} suffix="דק׳ (0=מטריצה)" /></label>
                   <label>עקיפת סבבים<NumInput value={s.roundsOverride ?? 0} max={12} onChange={(v) => patch(s.id, { roundsOverride: v || undefined })} suffix="ביום (0=מטריצה)" /></label>
+                  <label>שעת ניקיון מועדפת
+                    <select className="inp" value={s.slot ?? ''} onChange={(e) => patch(s.id, { slot: (e.target.value || undefined) as Space['slot'] })}>
+                      <option value="">אוטומטי</option>
+                      <option value="morning">בוקר (עד 12:00)</option>
+                      <option value="evening">ערב (אחרי 12:00)</option>
+                    </select>
+                  </label>
                 </div>
 
                 <h4>🚫 מגבלות – מתי אי אפשר לנקות <small>(שבועי קבוע)</small></h4>

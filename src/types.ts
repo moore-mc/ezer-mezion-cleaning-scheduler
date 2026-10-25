@@ -67,6 +67,8 @@ export interface Space {
   /** Optional per-space overrides of the matrix cell (rounds per day / minutes per round). */
   minutesOverride?: number
   roundsOverride?: number
+  /** Preferred part of the day for once-a-day / weekly cleans: before 12:00 or after 12:00. */
+  slot?: 'morning' | 'evening'
   /** Recurring weekly windows in which cleaning is impossible. */
   blocked: TimeWindow[]
   activities: Activity[]

@@ -80,6 +80,13 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
     // 1. Daily rounds from the matrix: the day is cut into equal slots, one slot per round.
     const { dayStart } = data.settings
     const endOf = (day: number) => (day === 5 ? data.settings.fridayEnd : data.settings.dayEnd)
+    const NOON = 12 * 60
+    /** Narrow a whole-day window to the space's preferred half of the day. */
+    const pick = (day: number, from: number, to: number): [number, number] => {
+      if (space.slot === 'morning' && to - from > 0) return [from, Math.min(to, NOON)]
+      if (space.slot === 'evening') return [Math.max(from, NOON), to]
+      return [from, to]
+    }
     if (cell.minutes > 0 && cell.rounds > 0) {
       for (const day of openDays) {
         const dayEnd = endOf(day)
@@ -91,8 +98,8 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
             kind: 'routine',
             label: cell.rounds > 1 ? `סבב ${i + 1}/${cell.rounds}` : 'ניקיון יומי',
             duration: cell.minutes,
-            earliest: day * DAY + Math.round(dayStart + i * slot),
-            deadline: day * DAY + Math.round(dayStart + (i + 1) * slot),
+            earliest: day * DAY + (cell.rounds === 1 ? pick(day, dayStart, dayEnd)[0] : Math.round(dayStart + i * slot)),
+            deadline: day * DAY + (cell.rounds === 1 ? pick(day, dayStart, dayEnd)[1] : Math.round(dayStart + (i + 1) * slot)),
             priority: 10 + space.level * 3,
           })
         }
@@ -106,12 +113,12 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
       if (cell.weeklyMin > 0) {
         const day = openDays[h % openDays.length]
         jobs.push({ id: `w|${space.id}`, spaceId: space.id, kind: 'routine', label: 'ניקיון שבועי', duration: cell.weeklyMin,
-          earliest: day * DAY + dayStart, deadline: day * DAY + endOf(day), priority: 8 })
+          earliest: day * DAY + pick(day, dayStart, endOf(day))[0], deadline: day * DAY + pick(day, dayStart, endOf(day))[1], priority: 8 })
       }
       if (cell.monthlyMin > 0 && (weekNo + h) % 4 === 0) {
         const day = openDays[(h + 1) % openDays.length]
         jobs.push({ id: `mo|${space.id}`, spaceId: space.id, kind: 'routine', label: 'ניקיון חודשי', duration: cell.monthlyMin,
-          earliest: day * DAY + dayStart, deadline: day * DAY + endOf(day), priority: 6 })
+          earliest: day * DAY + pick(day, dayStart, endOf(day))[0], deadline: day * DAY + pick(day, dayStart, endOf(day))[1], priority: 6 })
       }
     }
 
@@ -300,8 +307,9 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
       if (t === null) continue
       const dayLoad = st.load[Math.min(6, Math.floor(t / DAY))]
       const weekLoad = st.load.reduce((a, b) => a + b, 0)
+      // pack = first-fit: fill the lowest-numbered worker first so the headcount stays minimal
       const cost = opts.pack
-        ? t
+        ? states.indexOf(st) * 1e6 + t
         : (t - job.earliest) * 0.25 + dayLoad * 0.6 + weekLoad * 0.5 // earlier start + balanced workload (day & week)
       if (!best || cost < best.cost) best = { st, t, cost }
     }
