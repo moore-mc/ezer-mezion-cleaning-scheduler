@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import type { Override } from './types'
+import type { Override, Worker } from './types'
+import { uid } from './ui'
 import { addDays, floorMoves, hoursReport, overrideKey, schedule, weekStartOf } from './scheduler'
 import { useData } from './store'
 import ScheduleView from './ScheduleView'
@@ -49,6 +50,8 @@ export default function App() {
   const moves = floorMoves(result, siteData).total
   const multiFloor = (data.sites.find((x) => x.id === siteId)?.floors.length ?? 1) > 1
   const overtime = hoursReport(result, siteData).alerts.length
+  const addWorkers = (ws: Worker[]) =>
+    setData((d) => ({ ...d, workers: [...d.workers, ...ws.map((w) => ({ ...w, id: uid('w-') }))] }))
   const total = result.jobs.length
   const placed = result.placements.length
   const warns = result.placements.filter((p) => p.warnings.length).length
@@ -92,7 +95,7 @@ export default function App() {
               </div>
             </div>
             <PrintView data={siteData} siteName={data.sites.find((x) => x.id === siteId)?.name ?? ''} weekStart={weekStart} result={result} />
-            <ScheduleView siteId={siteId} data={siteData} weekStart={weekStart} result={result} setOverride={setOverride} />
+            <ScheduleView siteId={siteId} data={siteData} weekStart={weekStart} result={result} setOverride={setOverride} addWorkers={addWorkers} />
           </>
         )}
         {tab === 'staffing' && (

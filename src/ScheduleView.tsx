@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import type { AppData, Job, Override, Placement, ScheduleResult } from './types'
+import type { AppData, Job, Override, Placement, ScheduleResult, Worker } from './types'
+import { groupWindows, recommendHires } from './recommend'
 import { DAY, DAY_NAMES, addDays, floorMoves, fmt, hoursReport, overrideKey } from './scheduler'
 import type { Space } from './types'
 import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
@@ -20,9 +21,10 @@ interface Props {
   weekStart: string
   result: ScheduleResult
   setOverride: (jobId: string, o: Override | null) => void
+  addWorkers: (workers: Worker[]) => void
 }
 
-export default function ScheduleView({ siteId, data, weekStart, result, setOverride }: Props) {
+export default function ScheduleView({ siteId, data, weekStart, result, setOverride, addWorkers }: Props) {
   const today = new Date().toISOString().slice(0, 10)
   const [day, setDay] = useState(() => {
     const i = Math.round((Date.parse(today) - Date.parse(weekStart)) / 86400000)
@@ -40,6 +42,8 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
   const moves = useMemo(() => floorMoves(result, data), [result, data])
   const hours = useMemo(() => hoursReport(result, data), [result, data])
   const hh = (m: number) => (m / 60).toFixed(1)
+  const rec = useMemo(() => (result.unscheduled.length ? recommendHires(data, weekStart, siteId) : null), [result, data, weekStart, siteId])
+  const SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']
   const floorName = (spaceId: string) => {
     const sp = data.spaces.find((x) => x.id === spaceId) as Space | undefined
     return site && site.floors.length > 1 ? site.floors[sp?.floor ?? 0] : ''
@@ -186,6 +190,27 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
               ))}
             </ul>
           )}
+          {rec && rec.hires.length > 0 && (
+            <div className="reco">
+              <h4>💡 המלצה: להוסיף {rec.hires.length === 1 ? 'עובד אחד' : `${rec.hires.length} עובדים`} {rec.unfixable.length === 0 ? 'כדי לשבץ את הכל' : `– ישבצו ${rec.resolved} מתוך ${rec.resolved + rec.unfixable.length} המשימות`}</h4>
+              <ul>
+                {rec.hires.map((h) => (
+                  <li key={h.worker.id}>
+                    <b>{h.worker.name}</b> <small className="muted">· כ-{hh(h.weeklyMin)} ש׳ בשבוע</small>
+                    {groupWindows(h.windows).map((g, i) => (
+                      <div key={i}>{g.days.map((d) => SHORT[d]).join(' ')} · <span className="ltr">{fmt(g.start)}–{fmt(g.end)}</span></div>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+              <p className="muted">
+                {rec.unfixable.length > 0 ? `${rec.unfixable.length} משימות יישארו ללא שיבוץ וידרשו שינוי אילוץ או שיבוץ ידני.` : 'כל המשימות ישובצו.'}
+                המלצה מבוססת על חלונות עבודה של עד {data.settings.maxDailyHours} שעות ביום.
+              </p>
+              <Btn kind="primary" onClick={() => addWorkers(rec.hires.map((h) => h.worker))}>הוסף את העובדים לסניף</Btn>
+            </div>
+          )}
+          {rec && rec.hires.length === 0 && <p className="muted">תוספת עובדים לא תפתור את המשימות האלה – הסיבה מופיעה לכל משימה.</p>}
         </Card>
 
         <Card title={`שינויים ידניים (${overridden.length})`}>
