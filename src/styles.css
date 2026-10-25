@@ -185,3 +185,6 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .legend { flex-wrap: wrap; row-gap: 4px; }
 .legend i.tcol { border-radius: 3px; border-inline-start-width: 0; }
 .kind { font-style: normal; font-size: 11px; background: var(--surface); color: var(--ink); border-radius: 99px; padding: 0 7px; margin-inline-end: 6px; }
+
+.matrix tr.detail > td { padding: 8px 0 14px; background: var(--brand-soft); }
+.matrix tr.detail .card { box-shadow: none; border: 1px solid var(--line); }

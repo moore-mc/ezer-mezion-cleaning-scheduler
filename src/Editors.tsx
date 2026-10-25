@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import type { AppData, Level, Space, SpaceType, Worker } from './types'
 import { DAY_NAMES } from './scheduler'
 import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
@@ -101,8 +101,11 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
       )}
       <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
         onLevel={(id, level) => patch(id, { level })}
-        onOpen={(id) => { setOpen(id); setTimeout(() => document.getElementById('space-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} />
-      {spaces.filter((s) => s.id === open).map((s) => {
+        onOpen={(id) => {
+          setOpen(open === id ? null : id)
+          setTimeout(() => document.getElementById('space-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+        }}
+        renderDetail={(s) => {
         const type = data.types.find((t) => t.id === s.typeId)
         const cell = type?.matrix[s.level]
         const isOpen = open === s.id
@@ -188,7 +191,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
             )}
           </Card></div>
         )
-      })}
+      }} />
     </div>
   )
 }
@@ -317,9 +320,9 @@ function ManualJobs({ data, setData, siteId }: { data: AppData; setData: SetData
   )
 }
 
-function SpaceTable({ data, spaces, siteId, open, onLevel, onOpen }: {
+function SpaceTable({ data, siteId, open, onLevel, onOpen, renderDetail }: {
   data: AppData; spaces: Space[]; siteId: string; open: string | null
-  onLevel: (id: string, l: Level) => void; onOpen: (id: string) => void
+  onLevel: (id: string, l: Level) => void; onOpen: (id: string) => void; renderDetail: (s: Space) => React.ReactNode
 }) {
   const [all, setAll] = useState(false)
   const groups = (all ? data.sites : data.sites.filter((x) => x.id === siteId))
@@ -341,7 +344,8 @@ function SpaceTable({ data, spaces, siteId, open, onLevel, onOpen }: {
                     const type = data.types.find((t) => t.id === sp.typeId)
                     const cell = type?.matrix[sp.level]
                     return (
-                      <tr key={sp.id} className={open === sp.id ? 'hl' : ''}>
+                      <Fragment key={sp.id}>
+                      <tr className={open === sp.id ? 'hl' : ''}>
                         <td><b>{sp.name}</b></td>
                         <td>{type?.name}</td>
                         <td>
@@ -353,8 +357,10 @@ function SpaceTable({ data, spaces, siteId, open, onLevel, onOpen }: {
                         <td>{sp.roundsOverride ?? cell?.roundsPerDay}</td>
                         <td>{sp.minutesOverride ?? cell?.minutes}</td>
                         <td className="muted">{sp.blocked.length + sp.activities.length + sp.events.length || '—'}</td>
-                        <td><Btn onClick={() => onOpen(sp.id)}>פרטים</Btn></td>
+                        <td><Btn onClick={() => onOpen(sp.id)}>{open === sp.id ? 'סגור' : 'פרטים'}</Btn></td>
                       </tr>
+                      {open === sp.id && <tr className="detail"><td colSpan={7}>{renderDetail(sp)}</td></tr>}
+                      </Fragment>
                     )
                   })}
                 </tbody>
