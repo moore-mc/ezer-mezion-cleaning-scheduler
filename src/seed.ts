@@ -29,6 +29,15 @@ const types: SpaceType[] = FILE_TYPES.map((t) => {
   }
 })
 
+// Daycare rooms and the gymboree are cleaned ONCE a day (before the kids arrive / after they leave) at every activity
+// level, and the full clean takes ~55 min – so they override the generic per-level rounds.
+const ONCE_A_DAY = ['גן / מעון', "ג'ימבורי"]
+for (const t of types) {
+  if (!ONCE_A_DAY.includes(t.name)) continue
+  const cell = { minutes: 55, roundsPerDay: 1 }
+  t.matrix = { 1: { ...cell }, 2: { ...cell }, 3: { ...cell } }
+}
+
 const sites = [
   { id: 'bb', name: 'בני ברק – גוטמאכר 8 (מעון)' },
   { id: 'pt', name: 'פתח תקווה – שושנים 12' },
@@ -56,11 +65,10 @@ const thisWeekDay = (d: number) => addDays(weekStartOf(toISO(new Date())), d)
 // בני ברק – מעון גוטמאכר. הנחה: המעון פעיל א׳–ה׳ 07:30–16:30 (שישי סגור) ואי אפשר לנקות את חללי הילדים בזמן הפעילות.
 block(['bb-H1', 'bb-H2'], SUN_THU, h(7, 30), h(16, 30), 'שעות פעילות המעון')
 block(['bb-K1', 'bb-K2', 'bb-K3', 'bb-K4'], SUN_THU, h(7, 30), h(16, 30), 'ילדים בחצר / שעות המעון')
-block(['bb-L1'], SUN_THU, h(7, 30), h(16), 'שימוש המעון בג׳ימבורי')
+block(['bb-L1'], SUN_THU, h(7, 30), h(19), 'שעות פעילות הג׳ימבורי')
 block(['bb-A1'], SUN_THU, h(7, 45), h(8, 45), 'ארוחת בוקר של הילדים')
 block(['bb-E1', 'bb-E2', 'bb-E3'], [0, 2], h(9), h(10), 'ישיבת צוות')
 activity(['bb-A1'], SUN_THU, h(12), h(13), 'ארוחת צהריים של הילדים', 90)
-activity(['bb-L1'], SUN_THU, h(16), h(19), 'חוגי אחה״צ בג׳ימבורי', 180)
 // פתח תקווה – שושנים 12
 // הנחה: קבלת קהל והשאלת ציוד פתוחים א׳–ה׳ 09:00–13:00 / 09:00–14:00; המועדונית והחצר פעילות אחה״צ 15:00–18:00.
 block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')
