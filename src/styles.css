@@ -179,3 +179,9 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .matrix.compact tr.hl { background: var(--brand-soft); }
 .lvlsel { font-weight: 600; padding: 3px 8px; }
 .lvlsel.lvl1 { background: #e3f1e7; color: #25623a; } .lvlsel.lvl2 { background: #fdf0cf; color: #7a5a00; } .lvlsel.lvl3 { background: #fbdcd8; color: #8c2a20; }
+
+.tcol { --bgc: hsl(var(--h) 55% 90%); --bdc: hsl(var(--h) 45% 48%); background: var(--bgc); border-inline-start: 4px solid var(--bdc); }
+@media (prefers-color-scheme: dark) { .tcol { --bgc: hsl(var(--h) 30% 24%); --bdc: hsl(var(--h) 50% 60%); } }
+.legend { flex-wrap: wrap; row-gap: 4px; }
+.legend i.tcol { border-radius: 3px; border-inline-start-width: 0; }
+.kind { font-style: normal; font-size: 11px; background: var(--surface); color: var(--ink); border-radius: 99px; padding: 0 7px; margin-inline-end: 6px; }

@@ -8,6 +8,9 @@ const T1 = 24 * 60
 const PX = 150 // px per hour
 const x = (min: number) => ((min - T0) / 60) * PX
 
+/** Golden-angle hues give every space type its own distinct colour. */
+const hueOf = (idx: number) => Math.round((idx * 137.508 + 20) % 360)
+
 const KIND_LABEL = { routine: 'שוטף', activity: 'אחרי פעילות', event: 'אירוע מיוחד', manual: 'ידני' }
 
 interface Props {
@@ -31,6 +34,10 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
 
   const jobById = useMemo(() => new Map(result.jobs.map((j) => [j.id, j])), [result])
   const spaceName = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? '—'
+  const typeIdx = (spaceId: string) => data.types.findIndex((t) => t.id === data.spaces.find((s) => s.id === spaceId)?.typeId)
+  const hue = (spaceId: string) => ({ ['--h' as string]: hueOf(Math.max(0, typeIdx(spaceId))) }) as React.CSSProperties
+  const dayTypes = [...new Set(result.placements.filter((p) => Math.floor(p.start / DAY) === day).map((p) => typeIdx(jobById.get(p.jobId)!.spaceId)))]
+    .filter((i) => i >= 0).sort((a, b) => a - b)
   const closed = data.settings.closedDates.includes(addDays(weekStart, day))
 
   const perDay = DAY_NAMES.map((_, d) => ({
@@ -64,7 +71,7 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
       </div>
 
       <Card title={`לוח יומי – יום ${DAY_NAMES[day]}`} actions={<div className="viewbar">
-        <Legend />
+        <div className="legend">{dayTypes.map((i) => <span key={i}><i style={{ ['--h' as string]: hueOf(i) } as React.CSSProperties} className="tcol" />{data.types[i].name}</span>)}</div>
         <div className="seg" role="group" aria-label="תצוגה">
           <button className={view === 'list' ? 'on' : ''} onClick={() => changeView('list')}>רשימה</button>
           <button className={view === 'timeline' ? 'on' : ''} onClick={() => changeView('timeline')}>ציר זמן</button>
@@ -87,9 +94,9 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
                   {mine.map((p) => {
                     const j = jobById.get(p.jobId)!
                     return (
-                      <button key={p.jobId} className={`item k-${j.kind} ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
+                      <button key={p.jobId} style={hue(j.spaceId)} className={`item tcol ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
                         <span className="t">{fmt(p.start)}–{fmt(p.end)}</span>
-                        <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{j.label} · {j.duration} דק׳</small></span>
+                        <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label} · {j.duration} דק׳</small></span>
                       </button>
                     )
                   })}
@@ -119,8 +126,8 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
                         const j = jobById.get(p.jobId)!
                         const s = p.start - day * DAY
                         return (
-                          <button key={p.jobId} className={`blk k-${j.kind} ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`}
-                            style={{ right: x(s), width: Math.max(18, x(s + j.duration) - x(s) - 2), borderColor: w.color }}
+                          <button key={p.jobId} className={`blk tcol ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`}
+                            style={{ ...hue(j.spaceId), right: x(s), width: Math.max(18, x(s + j.duration) - x(s) - 2) }}
                             title={`${spaceName(j.spaceId)} · ${j.label}\n${fmt(p.start)}–${fmt(p.end)}`}
                             onClick={() => setSelected(p.jobId)}>
                             <b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b>
@@ -177,14 +184,6 @@ export default function ScheduleView({ data, weekStart, result, setOverride }: P
           spaceName={spaceName(selJob.spaceId)} onClose={() => setSelected(null)}
           onChange={(o) => setOverride(selJob.id, o)} />
       )}
-    </div>
-  )
-}
-
-function Legend() {
-  return (
-    <div className="legend">
-      {(['routine', 'activity', 'event', 'manual'] as const).map((k) => <span key={k}><i className={`k-${k}`} />{KIND_LABEL[k]}</span>)}
     </div>
   )
 }
