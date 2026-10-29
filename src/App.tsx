@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import type { Override, Worker } from './types'
+import type { Override } from './types'
+import type { FixPlan } from './recommend'
 import { uid } from './ui'
 import { addDays, floorMoves, hoursReport, overrideKey, schedule, weekStartOf } from './scheduler'
 import { useData } from './store'
@@ -16,6 +17,13 @@ const TABS = [
   { id: 'workers', label: 'עובדים' },
   { id: 'settings', label: 'הגדרות' },
 ] as const
+
+/** Exact share, one decimal, rounded DOWN so 100% appears only when everything is placed. */
+const pct = (a: number, b: number) => {
+  if (!b || a >= b) return '100'
+  const v = Math.floor((a / b) * 1000) / 10
+  return Number.isInteger(v) ? String(v) : v.toFixed(1)
+}
 
 export default function App() {
   const { data, setData, reset } = useData()
@@ -50,8 +58,17 @@ export default function App() {
   const moves = floorMoves(result, siteData).total
   const multiFloor = (data.sites.find((x) => x.id === siteId)?.floors.length ?? 1) > 1
   const overtime = hoursReport(result, siteData).alerts.length
-  const addWorkers = (ws: Worker[]) =>
-    setData((d) => ({ ...d, workers: [...d.workers, ...ws.map((w) => ({ ...w, id: uid('w-') }))] }))
+  const applyPlan = (plan: FixPlan) =>
+    setData((d) => ({
+      ...d,
+      workers: [
+        ...d.workers.map((w) => {
+          const mine = plan.extensions.filter((e) => e.workerId === w.id)
+          return mine.length ? { ...w, shifts: w.shifts.map((s, i) => mine.find((e) => e.day === i)?.after ?? s) } : w
+        }),
+        ...plan.hires.map((h) => ({ ...h.worker, id: uid('w-') })),
+      ],
+    }))
   const total = result.jobs.length
   const placed = result.placements.length
   const warns = result.placements.filter((p) => p.warnings.length).length
@@ -86,7 +103,7 @@ export default function App() {
                 <button className="today" onClick={() => setWeekStart(weekStartOf(new Date().toISOString().slice(0, 10)))}>השבוע</button>
               </div>
               <div className="kpis">
-                <div className="kpi"><b>{total ? Math.round((placed / total) * 100) : 100}%</b><span>שובצו ({placed}/{total})</span></div>
+                <div className="kpi"><b>{pct(placed, total)}%</b><span>שובצו ({placed}/{total})</span></div>
                 <div className={`kpi ${result.unscheduled.length ? 'bad' : ''}`}><b>{result.unscheduled.length}</b><span>ללא שיבוץ</span></div>
                 <div className={`kpi ${warns ? 'warn' : ''}`}><b>{warns}</b><span>אזהרות עקיפה</span></div>
                 <div className={`kpi ${overtime ? 'bad' : ''}`}><b>{overtime}</b><span>התראות שעות נוספות</span></div>
@@ -95,7 +112,7 @@ export default function App() {
               </div>
             </div>
             <PrintView data={siteData} siteName={data.sites.find((x) => x.id === siteId)?.name ?? ''} weekStart={weekStart} result={result} />
-            <ScheduleView siteId={siteId} data={siteData} weekStart={weekStart} result={result} setOverride={setOverride} addWorkers={addWorkers} />
+            <ScheduleView siteId={siteId} data={siteData} weekStart={weekStart} result={result} setOverride={setOverride} applyPlan={applyPlan} />
           </>
         )}
         {tab === 'staffing' && (

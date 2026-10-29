@@ -210,3 +210,22 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .ht td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .ht td .item { margin-bottom: 4px; }
 .ht th.hr { width: 64px; text-align: center; font-weight: 600; color: var(--muted); background: var(--bg); border-bottom: 1px solid var(--line); border-inline-end: 1px solid var(--line); padding-top: 10px; position: sticky; right: 0; z-index: 1; }
+
+/* hour grid: boxes are positioned by real time */
+.hg-wrap { overflow-x: auto; padding-bottom: 8px; }
+.hg { display: grid; min-width: max-content; width: 100%; position: relative; }
+.hg-corner, .hg-head { position: sticky; top: 0; z-index: 4; background: var(--surface); padding: 4px 6px 8px; border-bottom: 3px solid var(--line); }
+.hg-head { border-bottom-color: currentColor; border-bottom-style: solid; }
+.hg-head b { display: block; } .hg-head b i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; }
+.hg-head small { display: block; color: var(--muted); }
+.hg-corner { position: sticky; right: 0; z-index: 6; text-align: center; font-weight: 600; color: var(--muted); }
+.hg-hours { position: sticky; right: 0; z-index: 3; background: var(--bg); border-inline-end: 1px solid var(--line); }
+.hg-hours span { position: absolute; inset-inline: 0; text-align: center; font-weight: 600; color: var(--muted); font-size: 13px; transform: translateY(-9px); background: var(--bg); }
+.hg-hours span:first-child { transform: none; }
+.hg-col { position: relative; border-inline-end: 1px solid var(--line); background-image: linear-gradient(to bottom, var(--line) 1px, transparent 1px); background-size: 100% var(--hh); }
+.hg-avail { position: absolute; inset-inline: 0; background: color-mix(in srgb, var(--brand) 7%, transparent); pointer-events: none; }
+.gblk { position: absolute; inset-inline: 4px; border: 0; border-radius: 8px; padding: 2px 8px; overflow: hidden; text-align: start; color: var(--ink); display: flex; flex-direction: column; justify-content: center; line-height: 1.25; }
+.gblk .gl { display: flex; gap: 6px; align-items: baseline; white-space: nowrap; overflow: hidden; font-size: 12.5px; }
+.gblk .gl .t { font-weight: 600; color: var(--muted); font-size: 12px; }
+.gblk small { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gblk.sel { outline: 2px solid var(--brand); z-index: 2; } .gblk.warn { outline: 2px dashed var(--warn); }

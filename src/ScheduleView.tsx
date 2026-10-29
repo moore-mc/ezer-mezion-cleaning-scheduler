@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { AppData, Job, Override, Placement, ScheduleResult, Worker } from './types'
-import { groupWindows, recommendHires } from './recommend'
+import { groupWindows, recommendFixes } from './recommend'
+import type { FixPlan } from './recommend'
 import { DAY, DAY_NAMES, addDays, floorMoves, fmt, hoursReport, overrideKey } from './scheduler'
 import type { Space } from './types'
 import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
@@ -21,10 +22,10 @@ interface Props {
   weekStart: string
   result: ScheduleResult
   setOverride: (jobId: string, o: Override | null) => void
-  addWorkers: (workers: Worker[]) => void
+  applyPlan: (plan: FixPlan) => void
 }
 
-export default function ScheduleView({ siteId, data, weekStart, result, setOverride, addWorkers }: Props) {
+export default function ScheduleView({ siteId, data, weekStart, result, setOverride, applyPlan }: Props) {
   const today = new Date().toISOString().slice(0, 10)
   const [day, setDay] = useState(() => {
     const i = Math.round((Date.parse(today) - Date.parse(weekStart)) / 86400000)
@@ -42,7 +43,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
   const moves = useMemo(() => floorMoves(result, data), [result, data])
   const hours = useMemo(() => hoursReport(result, data), [result, data])
   const hh = (m: number) => (m / 60).toFixed(1)
-  const rec = useMemo(() => (result.unscheduled.length ? recommendHires(data, weekStart, siteId) : null), [result, data, weekStart, siteId])
+  const plan = useMemo(() => (result.unscheduled.length || hours.alerts.length ? recommendFixes(data, weekStart, siteId) : null), [result, hours, data, weekStart, siteId])
   const SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']
   const floorName = (spaceId: string) => {
     const sp = data.spaces.find((x) => x.id === spaceId) as Space | undefined
@@ -55,55 +56,109 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     const fl = (id: string) => data.spaces.find((x) => x.id === jobById.get(id)?.spaceId)?.floor ?? 0
     return mine.reduce((n, p, i) => n + (i > 0 && fl(p.jobId) !== fl(mine[i - 1].jobId) ? 1 : 0), 0)
   }
+  const PPM = 2.6 // px per minute: a box sits exactly where its time is and may cross the hour lines
   const HourTable = () => {
     const mine = (wid: string) => result.placements.filter((p) => p.workerId === wid && Math.floor(p.start / DAY) === day)
     const all = data.workers.flatMap((w) => mine(w.id))
     if (!all.length) return <p className="muted">אין משימות ביום זה.</p>
     const h0 = Math.floor(Math.min(...all.map((p) => p.start - day * DAY)) / 60)
-    const h1 = Math.floor(Math.max(...all.map((p) => p.start - day * DAY)) / 60)
+    const h1 = Math.ceil(Math.max(...all.map((p) => p.end - day * DAY)) / 60)
+    const H = (h1 - h0) * 60 * PPM
     const hoursList = Array.from({ length: h1 - h0 + 1 }, (_, i) => h0 + i)
     return (
-      <div className="ht-wrap">
-        <table className="ht" style={{ minWidth: data.workers.length * 250 + 64 }}>
-          <thead>
-            <tr>
-              <th className="hr-h">שעה</th>
-              {data.workers.map((w) => {
-                const shift = w.shifts[day]
-                const absent = w.absences.includes(addDays(weekStart, day))
-                const pres = hours.byWorker[w.id]?.days[day] ?? 0
-                const over = pres > data.settings.maxDailyHours * 60
-                return (
-                  <th key={w.id} style={{ borderColor: w.color }}>
-                    <b><i style={{ background: w.color }} />{w.name}</b>
-                    <small>{absent ? 'נעדר' : shift ? <>זמין <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span></> : 'לא זמין'}</small>
-                    <small>{mine(w.id).length} משימות · {over ? <b className="bad">⚠ נוכחות {hh(pres)} ש׳</b> : `נוכחות ${hh(pres)} ש׳`}{site && site.floors.length > 1 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {hoursList.map((hr) => (
-              <tr key={hr}>
-                <th className="hr" scope="row">{String(hr).padStart(2, '0')}:00</th>
-                {data.workers.map((w) => (
-                  <td key={w.id}>
-                    {mine(w.id).filter((p) => Math.floor((p.start - day * DAY) / 60) === hr).map((p) => {
-                      const j = jobById.get(p.jobId)!
-                      return (
-                        <button key={p.jobId} style={hue(j.spaceId)} className={`item tcol ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
-                          <span className="t">{fmt(p.start)}–{fmt(p.end)}</span>
-                          <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{floorName(j.spaceId) && <em className="kind">{floorName(j.spaceId)}</em>}{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label} · {j.duration} דק׳</small></span>
-                        </button>
-                      )
-                    })}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="hg-wrap">
+        <div className="hg" style={{ gridTemplateColumns: `64px repeat(${data.workers.length}, minmax(230px, 1fr))`, ['--hh' as string]: `${60 * PPM}px` }}>
+          <div className="hg-corner">שעה</div>
+          {data.workers.map((w) => {
+            const shift = w.shifts[day]
+            const absent = w.absences.includes(addDays(weekStart, day))
+            const pres = hours.byWorker[w.id]?.days[day] ?? 0
+            const over = pres > data.settings.maxDailyHours * 60
+            return (
+              <div className="hg-head" key={w.id} style={{ borderColor: w.color }}>
+                <b><i style={{ background: w.color }} />{w.name}</b>
+                <small>{absent ? 'נעדר' : shift ? <>זמין <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span></> : 'לא זמין'}</small>
+                <small>{mine(w.id).length} משימות · {over ? <b className="bad">⚠ נוכחות {hh(pres)} ש׳</b> : `נוכחות ${hh(pres)} ש׳`}{site && site.floors.length > 1 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
+              </div>
+            )
+          })}
+          <div className="hg-hours" style={{ height: H }}>
+            {hoursList.slice(0, -1).map((hr) => <span key={hr} style={{ top: (hr - h0) * 60 * PPM }}>{String(hr).padStart(2, '0')}:00</span>)}
+          </div>
+          {data.workers.map((w) => {
+            const shift = w.shifts[day]
+            return (
+              <div className="hg-col" key={w.id} style={{ height: H }}>
+                {shift && !w.absences.includes(addDays(weekStart, day)) && (
+                  <div className="hg-avail" title="זמינות העובד" style={{ top: Math.max(0, shift.start - h0 * 60) * PPM, height: Math.max(0, Math.min(shift.end, h1 * 60) - Math.max(shift.start, h0 * 60)) * PPM }} />
+                )}
+                {mine(w.id).map((p) => {
+                  const j = jobById.get(p.jobId)!
+                  const hgt = (p.end - p.start) * PPM - 2
+                  const tall = hgt >= 52
+                  return (
+                    <button key={p.jobId} title={`${spaceName(j.spaceId)} · ${j.label}\n${fmt(p.start)}–${fmt(p.end)}`}
+                      style={{ ...hue(j.spaceId), top: (p.start - day * DAY - h0 * 60) * PPM, height: hgt }}
+                      className={`gblk tcol ${tall ? 'tall' : ''} ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
+                      <span className="gl"><span className="t ltr">{fmt(p.start)}–{fmt(p.end)}</span> <b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b></span>
+                      {tall && <small>{floorName(j.spaceId) && <em className="kind">{floorName(j.spaceId)}</em>}{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label} · {j.duration} דק׳</small>}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+  const FixPanel = ({ plan }: { plan: FixPlan }) => {
+    const none = plan.extensions.length === 0 && plan.hires.length === 0
+    const solved = plan.after.unscheduled.length === 0 && plan.after.alerts.length === 0
+    const win = (w: { start: number; end: number } | null) => (w ? `${fmt(w.start)}–${fmt(w.end)}` : 'לא עבד')
+    return (
+      <div className="reco">
+        <h4>💡 המלצה לפתרון</h4>
+        {none ? (
+          <p className="muted">לא מצאתי תוספת שעות או עובדים שתשפר את המצב. כדאי לשנות אילוץ של חלל, לקצר סבבים או לשבץ ידנית.</p>
+        ) : (
+          <>
+            {plan.extensions.length > 0 && (
+              <div>
+                <b>להוסיף שעות לעובדים קיימים</b>
+                <ul>
+                  {plan.extensions.map((e) => (
+                    <li key={`${e.workerId}|${e.day}`}>
+                      <b>{e.workerName}</b> · יום {DAY_NAMES[e.day]}: <span className="ltr">{win(e.before)}</span> ← <span className="ltr">{win(e.after)}</span> <small className="muted">(+{hh(e.addedMin)} ש׳)</small>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {plan.hires.length > 0 && (
+              <div>
+                <b>להוסיף {plan.hires.length === 1 ? 'עובד אחד' : `${plan.hires.length} עובדים`}</b>
+                <ul>
+                  {plan.hires.map((h) => (
+                    <li key={h.worker.id}>
+                      <b>{h.worker.name}</b> <small className="muted">· כ-{hh(h.weeklyMin)} ש׳ בשבוע</small>
+                      {groupWindows(h.windows).map((g, i) => (
+                        <div key={i}>{g.days.map((d) => SHORT[d]).join(' ')} · <span className="ltr">{fmt(g.start)}–{fmt(g.end)}</span></div>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className={solved ? 'ok-note' : 'muted'}>
+              {solved
+                ? '✓ אחרי ההמלצה כל המשימות משובצות ואין התראות שעות נוספות.'
+                : `אחרי ההמלצה: ${plan.after.unscheduled.length} משימות ללא שיבוץ · ${plan.after.alerts.length} התראות שעות נוספות (כעת: ${plan.before.unscheduled} · ${plan.before.alerts}).`}
+              {' '}ההמלצה מעדיפה הוספת שעות לעובדים קיימים לפני גיוס, ושומרת על {data.settings.maxDailyHours} שעות ביום.
+            </p>
+            <Btn kind="primary" onClick={() => applyPlan(plan)}>החל את ההמלצה</Btn>
+          </>
+        )}
       </div>
     )
   }
@@ -200,6 +255,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
               </li>
             ))}
           </ul>
+          {plan && <FixPanel plan={plan} />}
           <p className="muted">נוכחות = משימות רצופות מההתחלה ועד הסוף; הפסקה של שעתיים ומעלה נחשבת כזמן חופשי. אפשר לפתור בהוספת עובד, בהרחבת זמינות של עובדים אחרים או בקיצור הסבבים.</p>
         </Card>
       )}
@@ -217,27 +273,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
               ))}
             </ul>
           )}
-          {rec && rec.hires.length > 0 && (
-            <div className="reco">
-              <h4>💡 המלצה: להוסיף {rec.hires.length === 1 ? 'עובד אחד' : `${rec.hires.length} עובדים`} {rec.unfixable.length === 0 ? 'כדי לשבץ את הכל' : `– ישבצו ${rec.resolved} מתוך ${rec.resolved + rec.unfixable.length} המשימות`}</h4>
-              <ul>
-                {rec.hires.map((h) => (
-                  <li key={h.worker.id}>
-                    <b>{h.worker.name}</b> <small className="muted">· כ-{hh(h.weeklyMin)} ש׳ בשבוע</small>
-                    {groupWindows(h.windows).map((g, i) => (
-                      <div key={i}>{g.days.map((d) => SHORT[d]).join(' ')} · <span className="ltr">{fmt(g.start)}–{fmt(g.end)}</span></div>
-                    ))}
-                  </li>
-                ))}
-              </ul>
-              <p className="muted">
-                {rec.unfixable.length > 0 ? `${rec.unfixable.length} משימות יישארו ללא שיבוץ גם אחרי ההוספה; לפתרון: זמינות רחבה יותר, שינוי אילוץ או שיבוץ ידני.` : 'כל המשימות ישובצו.'}
-                המלצה מבוססת על חלונות עבודה של עד {data.settings.maxDailyHours} שעות ביום.
-              </p>
-              <Btn kind="primary" onClick={() => addWorkers(rec.hires.map((h) => h.worker))}>הוסף את העובדים לסניף</Btn>
-            </div>
-          )}
-          {rec && rec.hires.length === 0 && <p className="muted">לא מצאתי תוספת עובדים שתשפר את השיבוץ. כדאי להרחיב את הזמינות של עובדים קיימים (לשונית "עובדים"), לשנות אילוץ של החלל, או לשבץ ידנית – הסיבה לכל משימה מופיעה למעלה.</p>}
+          {plan && <FixPanel plan={plan} />}
         </Card>
 
         <Card title={`שינויים ידניים (${overridden.length})`}>
