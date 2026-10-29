@@ -9,6 +9,18 @@ import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
 /** Golden-angle hues give every space type its own distinct colour. */
 const hueOf = (idx: number) => Math.round((idx * 137.508 + 20) % 360)
 
+type Group = 'daily' | 'weekly' | 'monthly' | 'activity' | 'event' | 'manual'
+const GROUPS: { id: Group; title: string; hint: string }[] = [
+  { id: 'daily', title: 'ניקיון יומי', hint: 'רשימת המשימות היומית של החלל' },
+  { id: 'weekly', title: 'ניקיון שבועי', hint: 'פעם בשבוע – משימות עומק שלא עושים כל יום' },
+  { id: 'monthly', title: 'ניקיון חודשי', hint: 'פעם בחודש – משימות עומק' },
+  { id: 'activity', title: 'אחרי פעילות', hint: 'ניקיון חובה בסיום פעילות קבועה בחלל' },
+  { id: 'event', title: 'אירוע מיוחד', hint: 'ניקיון לפני / אחרי אירוע ביומן' },
+  { id: 'manual', title: 'משימה חד־פעמית', hint: 'משימה שהוגדרה ידנית' },
+]
+const groupOf = (jobId: string, kind: string): Group =>
+  jobId.startsWith('w|') ? 'weekly' : jobId.startsWith('mo|') ? 'monthly' : kind === 'activity' ? 'activity' : kind === 'event' ? 'event' : kind === 'manual' ? 'manual' : 'daily'
+
 const KIND_LABEL = { routine: 'שוטף', activity: 'אחרי פעילות', event: 'אירוע מיוחד', manual: 'ידני' }
 
 interface Props {
@@ -27,6 +39,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     return i >= 0 && i < 7 ? i : 0
   })
   const [selected, setSelected] = useState<string | null>(null)
+  const [spaceSel, setSpaceSel] = useState<{ spaceId: string; group: Group; jobId: string } | null>(null)
 
   const jobById = useMemo(() => new Map(result.jobs.map((j) => [j.id, j])), [result])
   const spaceName = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? '—'
@@ -44,37 +57,46 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
         {data.workers.map((w) => {
           const list = mine(w.id)
           const absent = w.absences.includes(addDays(weekStart, day))
-          // one row per space (a space cleaned in several rounds shows ×N)
-          const bySpace = new Map<string, { jobId: string; spaceId: string; n: number; min: number; kinds: Set<string> }>()
+          // group by kind of cleaning, then one row per space (several rounds show ×N)
+          const groups = new Map<Group, Map<string, { jobId: string; spaceId: string; n: number; labels: Set<string> }>>()
           for (const p of list) {
             const j = jobById.get(p.jobId)!
-            const e = bySpace.get(j.spaceId) ?? { jobId: p.jobId, spaceId: j.spaceId, n: 0, min: 0, kinds: new Set<string>() }
-            e.n++; e.min += p.end - p.start
-            if (j.kind !== 'routine') e.kinds.add(KIND_LABEL[j.kind])
-            else if (j.label !== 'ניקיון יומי' && !j.label.startsWith('סבב')) e.kinds.add(j.label.replace('ניקיון ', ''))
-            bySpace.set(j.spaceId, e)
+            const g = groupOf(j.id, j.kind)
+            const m = groups.get(g) ?? new Map()
+            const e = m.get(j.spaceId) ?? { jobId: p.jobId, spaceId: j.spaceId, n: 0, labels: new Set<string>() }
+            e.n++
+            if (g === 'activity' || g === 'event' || g === 'manual') e.labels.add(j.label)
+            m.set(j.spaceId, e); groups.set(g, m)
           }
-          const rows = [...bySpace.values()].sort((a, b) => typeIdx(a.spaceId) - typeIdx(b.spaceId) || spaceName(a.spaceId).localeCompare(spaceName(b.spaceId), 'he', { numeric: true }))
+          const sortRows = (m: Map<string, { jobId: string; spaceId: string; n: number; labels: Set<string> }>) =>
+            [...m.values()].sort((a, b) => typeIdx(a.spaceId) - typeIdx(b.spaceId) || spaceName(a.spaceId).localeCompare(spaceName(b.spaceId), 'he', { numeric: true }))
           const total = list.reduce((a, p) => a + p.end - p.start, 0)
+          const spacesCount = new Set(list.map((p) => jobById.get(p.jobId)!.spaceId)).size
           return (
             <div className="col" key={w.id}>
               <header style={{ borderColor: w.color }}>
                 <b><i style={{ background: w.color }} />{w.name}</b>
-                <small>{absent ? 'נעדר' : `${rows.length} חללים`}</small>
+                <small>{absent ? 'נעדר' : `${spacesCount} חללים`}</small>
                 {!absent && <strong className="sumh">{hh(total)} שעות ניקיון</strong>}
               </header>
-              {rows.length === 0 && <p className="muted pad">{absent ? '' : 'אין משימות'}</p>}
-              <ul className="tl-list">
-                {rows.map((r) => (
-                  <li key={r.spaceId}>
-                    <button style={hue(r.spaceId)} className={`lrow ${selected === r.jobId ? 'sel' : ''}`} onClick={() => setSelected(r.jobId)}>
-                      <i className="dot tcol" />
-                      <b>{spaceName(r.spaceId)}</b>
-                      <span className="lm">{[...r.kinds].join(' · ')}{r.n > 1 && ` ×${r.n}`}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {list.length === 0 && <p className="muted pad">{absent ? '' : 'אין משימות'}</p>}
+              {GROUPS.filter((g) => groups.has(g.id)).map((g) => (
+                <section key={g.id} className="grp">
+                  <h5 title={g.hint}>{g.title} <small>({groups.get(g.id)!.size}){g.id === 'weekly' && ' · משימות עומק, פעם בשבוע'}{g.id === 'monthly' && ' · משימות עומק, פעם בחודש'}{g.id === 'activity' && ' · אחרי פעילות קבועה'}</small></h5>
+                  <ul className="tl-list">
+                    {sortRows(groups.get(g.id)!).map((r) => (
+                      <li key={r.spaceId}>
+                        <button style={hue(r.spaceId)} className={`lrow ${spaceSel?.spaceId === r.spaceId && spaceSel.group === g.id ? 'sel' : ''}`}
+                          onClick={() => setSpaceSel({ spaceId: r.spaceId, group: g.id, jobId: r.jobId })}>
+                          <i className="dot tcol" />
+                          <b>{spaceName(r.spaceId)}</b>
+                          <span className="lm">{[...r.labels].join(' · ')}{r.n > 1 && ` ×${r.n}`}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
             </div>
           )
         })}
@@ -224,6 +246,11 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
         </Card>
       </div>
 
+      {spaceSel && (
+        <SpacePanel data={data} spaceId={spaceSel.spaceId} group={spaceSel.group}
+          onClose={() => setSpaceSel(null)} onEdit={() => { setSelected(spaceSel.jobId); setSpaceSel(null) }} />
+      )}
+
       {selJob && (
         <JobPanel key={selJob.id + (selPlacement?.start ?? '')} data={data} job={selJob} placement={selPlacement}
           unscheduled={selUnsched?.reason} override={data.overrides[overrideKey(weekStart, selJob.id)]}
@@ -282,6 +309,34 @@ function JobPanel({ data, job, placement, unscheduled, override, spaceName, onCl
           : <Btn kind="danger" onClick={() => onChange({ ...override, skip: true })}>דלג על משימה זו</Btn>}
         {override && <Btn onClick={() => onChange(null)}>חזור לאוטומטי</Btn>}
       </div>
+    </aside>
+  )
+}
+
+function SpacePanel({ data, spaceId, group, onClose, onEdit }: {
+  data: AppData; spaceId: string; group: Group; onClose: () => void; onEdit: () => void
+}) {
+  const space = data.spaces.find((x) => x.id === spaceId)
+  const type = data.types.find((t) => t.id === space?.typeId)
+  const g = GROUPS.find((x) => x.id === group)!
+  // after an activity / event / one-off task the space gets its daily clean; weekly / monthly use their own lists
+  const list = group === 'weekly' ? type?.tasks?.weekly : group === 'monthly' ? type?.tasks?.monthly : type?.tasks?.daily
+  const cell = type?.matrix[space?.level ?? 1]
+  const rounds = space?.roundsOverride ?? cell?.roundsPerDay
+  return (
+    <aside className="panel" role="dialog" aria-label="מה מנקים בחלל">
+      <header>
+        <div><small>{type?.name} · רמה {space?.level}</small><h3>{space?.name}</h3><p>{g.title}</p></div>
+        <button className="x" onClick={onClose} aria-label="סגור">×</button>
+      </header>
+      <p className="muted">{g.hint}.{group === 'daily' && rounds ? ` מתבצע ${rounds === 1 ? 'פעם אחת' : `${rounds} פעמים (סבבים)`} ביום בכל יום עבודה.` : ''}{group === 'weekly' ? ' מתבצע פעם אחת בשבוע, ביום קבוע שנבחר לחלל.' : ''}{group === 'monthly' ? ' מתבצע פעם ב-4 שבועות.' : ''}</p>
+      <h4>מה מנקים</h4>
+      {list && list.length > 0 ? (
+        <ul className="checklist">{list.map((t) => <li key={t}>{t}</li>)}</ul>
+      ) : (
+        <p className="muted">לא הוגדרה רשימת משימות לסוג החלל הזה (ניתן להגדיר בלשונית "מטריצה").</p>
+      )}
+      <Btn onClick={onEdit}>עריכת השיבוץ (הזזה / דילוג)</Btn>
     </aside>
   )
 }
