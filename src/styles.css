@@ -199,3 +199,14 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .reco ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .reco li { background: var(--surface); border-radius: 10px; padding: 8px 12px; }
 .reco .btn { justify-self: start; }
+
+.ht-wrap { overflow-x: auto; padding-bottom: 8px; }
+.ht { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
+.ht th, .ht td { vertical-align: top; }
+.ht thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); text-align: start; padding: 4px 6px 8px; border-bottom: 3px solid; }
+.ht thead th b { display: block; } .ht thead th b i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; }
+.ht thead th small { display: block; color: var(--muted); font-weight: 400; }
+.ht thead th.hr-h { width: 64px; border-color: var(--line); text-align: center; }
+.ht td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.ht td .item { margin-bottom: 4px; }
+.ht th.hr { width: 64px; text-align: center; font-weight: 600; color: var(--muted); background: var(--bg); border-bottom: 1px solid var(--line); border-inline-start: 1px solid var(--line); padding-top: 10px; position: sticky; left: 0; }

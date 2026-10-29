@@ -55,6 +55,58 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     const fl = (id: string) => data.spaces.find((x) => x.id === jobById.get(id)?.spaceId)?.floor ?? 0
     return mine.reduce((n, p, i) => n + (i > 0 && fl(p.jobId) !== fl(mine[i - 1].jobId) ? 1 : 0), 0)
   }
+  const HourTable = () => {
+    const mine = (wid: string) => result.placements.filter((p) => p.workerId === wid && Math.floor(p.start / DAY) === day)
+    const all = data.workers.flatMap((w) => mine(w.id))
+    if (!all.length) return <p className="muted">אין משימות ביום זה.</p>
+    const h0 = Math.floor(Math.min(...all.map((p) => p.start - day * DAY)) / 60)
+    const h1 = Math.floor(Math.max(...all.map((p) => p.start - day * DAY)) / 60)
+    const hoursList = Array.from({ length: h1 - h0 + 1 }, (_, i) => h0 + i)
+    return (
+      <div className="ht-wrap">
+        <table className="ht" style={{ minWidth: data.workers.length * 250 + 64 }}>
+          <thead>
+            <tr>
+              {data.workers.map((w) => {
+                const shift = w.shifts[day]
+                const absent = w.absences.includes(addDays(weekStart, day))
+                const pres = hours.byWorker[w.id]?.days[day] ?? 0
+                const over = pres > data.settings.maxDailyHours * 60
+                return (
+                  <th key={w.id} style={{ borderColor: w.color }}>
+                    <b><i style={{ background: w.color }} />{w.name}</b>
+                    <small>{absent ? 'נעדר' : shift ? <>זמין <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span></> : 'לא זמין'}</small>
+                    <small>{mine(w.id).length} משימות · {over ? <b className="bad">⚠ נוכחות {hh(pres)} ש׳</b> : `נוכחות ${hh(pres)} ש׳`}{site && site.floors.length > 1 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
+                  </th>
+                )
+              })}
+              <th className="hr-h">שעה</th>
+            </tr>
+          </thead>
+          <tbody>
+            {hoursList.map((hr) => (
+              <tr key={hr}>
+                {data.workers.map((w) => (
+                  <td key={w.id}>
+                    {mine(w.id).filter((p) => Math.floor((p.start - day * DAY) / 60) === hr).map((p) => {
+                      const j = jobById.get(p.jobId)!
+                      return (
+                        <button key={p.jobId} style={hue(j.spaceId)} className={`item tcol ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
+                          <span className="t">{fmt(p.start)}–{fmt(p.end)}</span>
+                          <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{floorName(j.spaceId) && <em className="kind">{floorName(j.spaceId)}</em>}{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label} · {j.duration} דק׳</small></span>
+                        </button>
+                      )
+                    })}
+                  </td>
+                ))}
+                <th className="hr" scope="row">{String(hr).padStart(2, '0')}:00</th>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
   const dayTypes = [...new Set(result.placements.filter((p) => Math.floor(p.start / DAY) === day).map((p) => typeIdx(jobById.get(p.jobId)!.spaceId)))]
     .filter((i) => i >= 0).sort((a, b) => a - b)
   const closed = data.settings.closedDates.includes(addDays(weekStart, day))
@@ -97,32 +149,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
         </div>
       </div>}>
         {closed ? <p className="muted">היום מסומן כיום סגור (חג / ללא עבודה).</p> : view === 'list' ? (
-          <div className="cols" style={{ ['--n' as string]: data.workers.length }}>
-            {data.workers.map((w) => {
-              const shift = w.shifts[day]
-              const absent = w.absences.includes(addDays(weekStart, day))
-              const mine = result.placements.filter((p) => p.workerId === w.id && Math.floor(p.start / DAY) === day)
-              const mins = mine.reduce((a, p) => a + p.end - p.start, 0)
-              return (
-                <div className="col" key={w.id}>
-                  <header style={{ borderColor: w.color }}>
-                    <b><i style={{ background: w.color }} />{w.name}</b>
-                    <small>{absent ? 'נעדר' : shift ? <>זמין <span className="ltr">{fmt(shift.start)}–{fmt(shift.end)}</span></> : 'לא זמין'} · {mine.length} משימות · עבודה {(mins / 60).toFixed(1)} ש׳{(hours.byWorker[w.id]?.days[day] ?? 0) > data.settings.maxDailyHours * 60 ? <b className="bad"> · ⚠ נוכחות {hh(hours.byWorker[w.id].days[day])} ש׳ (חריגה)</b> : ` · נוכחות ${hh(hours.byWorker[w.id]?.days[day] ?? 0)} ש׳`}{site && site.floors.length > 1 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
-                  </header>
-                  {mine.length === 0 && <p className="muted pad">אין משימות</p>}
-                  {mine.map((p) => {
-                    const j = jobById.get(p.jobId)!
-                    return (
-                      <button key={p.jobId} style={hue(j.spaceId)} className={`item tcol ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
-                        <span className="t">{fmt(p.start)}–{fmt(p.end)}</span>
-                        <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b><small>{floorName(j.spaceId) && <em className="kind">{floorName(j.spaceId)}</em>}{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label} · {j.duration} דק׳</small></span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
+          <HourTable />
         ) : (
           <div className="tl-scroll">
             <div className="tl" style={{ width: x(T1) + 120, ['--px' as string]: `${PX}px` }}>
