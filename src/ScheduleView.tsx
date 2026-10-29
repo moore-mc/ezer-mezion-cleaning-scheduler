@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react'
 import type { AppData, Job, Override, Placement, ScheduleResult, Worker } from './types'
 import { groupWindows, recommendFixes } from './recommend'
 import type { FixPlan } from './recommend'
-import { DAY, DAY_NAMES, addDays, floorMoves, fmt, hoursReport, overrideKey, stintsOf } from './scheduler'
-import type { Space } from './types'
+import { DAY, DAY_NAMES, addDays, fmt, hoursReport, overrideKey, stintsOf } from './scheduler'
 import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
 
 
@@ -31,23 +30,12 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
 
   const jobById = useMemo(() => new Map(result.jobs.map((j) => [j.id, j])), [result])
   const spaceName = (id: string) => data.spaces.find((s) => s.id === id)?.name ?? '—'
-  const site = data.sites.find((x) => x.id === siteId)
-  const moves = useMemo(() => floorMoves(result, data), [result, data])
   const hours = useMemo(() => hoursReport(result, data), [result, data])
   const hh = (m: number) => (m / 60).toFixed(1)
   const plan = useMemo(() => (result.unscheduled.length || hours.alerts.length ? recommendFixes(data, weekStart, siteId) : null), [result, hours, data, weekStart, siteId])
   const SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']
-  const floorName = (spaceId: string) => {
-    const sp = data.spaces.find((x) => x.id === spaceId) as Space | undefined
-    return site && site.floors.length > 1 ? site.floors[sp?.floor ?? 0] : ''
-  }
   const typeIdx = (spaceId: string) => data.types.findIndex((t) => t.id === data.spaces.find((s) => s.id === spaceId)?.typeId)
   const hue = (spaceId: string) => ({ ['--h' as string]: hueOf(Math.max(0, typeIdx(spaceId))) }) as React.CSSProperties
-  const dayMoves = (workerId: string) => {
-    const mine = result.placements.filter((p) => p.workerId === workerId && Math.floor(p.start / DAY) === day)
-    const fl = (id: string) => data.spaces.find((x) => x.id === jobById.get(id)?.spaceId)?.floor ?? 0
-    return mine.reduce((n, p, i) => n + (i > 0 && fl(p.jobId) !== fl(mine[i - 1].jobId) ? 1 : 0), 0)
-  }
   const DayList = () => {
     const mine = (wid: string) => result.placements.filter((p) => p.workerId === wid && Math.floor(p.start / DAY) === day)
     if (!result.placements.some((p) => Math.floor(p.start / DAY) === day)) return <p className="muted">אין משימות ביום זה.</p>
@@ -56,27 +44,36 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
         {data.workers.map((w) => {
           const list = mine(w.id)
           const absent = w.absences.includes(addDays(weekStart, day))
+          // one row per space (a space cleaned in several rounds shows ×N)
+          const bySpace = new Map<string, { jobId: string; spaceId: string; n: number; min: number; kinds: Set<string> }>()
+          for (const p of list) {
+            const j = jobById.get(p.jobId)!
+            const e = bySpace.get(j.spaceId) ?? { jobId: p.jobId, spaceId: j.spaceId, n: 0, min: 0, kinds: new Set<string>() }
+            e.n++; e.min += p.end - p.start
+            if (j.kind !== 'routine') e.kinds.add(KIND_LABEL[j.kind])
+            else if (j.label !== 'ניקיון יומי' && !j.label.startsWith('סבב')) e.kinds.add(j.label.replace('ניקיון ', ''))
+            bySpace.set(j.spaceId, e)
+          }
+          const rows = [...bySpace.values()].sort((a, b) => typeIdx(a.spaceId) - typeIdx(b.spaceId) || spaceName(a.spaceId).localeCompare(spaceName(b.spaceId), 'he', { numeric: true }))
+          const total = list.reduce((a, p) => a + p.end - p.start, 0)
           return (
             <div className="col" key={w.id}>
               <header style={{ borderColor: w.color }}>
                 <b><i style={{ background: w.color }} />{w.name}</b>
-                <small>{absent ? 'נעדר' : `${list.length} משימות`}{site && site.floors.length > 1 && list.length > 0 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
+                <small>{absent ? 'נעדר' : `${rows.length} חללים`}</small>
+                {!absent && <strong className="sumh">{hh(total)} שעות ניקיון</strong>}
               </header>
-              {list.length === 0 && <p className="muted pad">{absent ? '' : 'אין משימות'}</p>}
+              {rows.length === 0 && <p className="muted pad">{absent ? '' : 'אין משימות'}</p>}
               <ul className="tl-list">
-                {list.map((p) => {
-                  const j = jobById.get(p.jobId)!
-                  const meta = [floorName(j.spaceId), j.kind !== 'routine' ? KIND_LABEL[j.kind] : '', j.label].filter(Boolean).join(' · ')
-                  return (
-                    <li key={p.jobId}>
-                      <button style={hue(j.spaceId)} className={`lrow ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
-                        <i className="dot tcol" />
-                        <b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b>
-                        <span className="lm">{meta}</span>
-                      </button>
-                    </li>
-                  )
-                })}
+                {rows.map((r) => (
+                  <li key={r.spaceId}>
+                    <button style={hue(r.spaceId)} className={`lrow ${selected === r.jobId ? 'sel' : ''}`} onClick={() => setSelected(r.jobId)}>
+                      <i className="dot tcol" />
+                      <b>{spaceName(r.spaceId)}</b>
+                      <span className="lm">{[...r.kinds].join(' · ')}{r.n > 1 && ` ×${r.n}`}</span>
+                    </button>
+                  </li>
+                ))}
               </ul>
             </div>
           )

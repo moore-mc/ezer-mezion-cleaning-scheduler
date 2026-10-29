@@ -71,14 +71,12 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
   const [open, setOpen] = useState<string | null>(spaces[0]?.id ?? null)
   const patch = (id: string, p: Partial<Space>) => setData((d) => ({ ...d, spaces: d.spaces.map((s) => s.id === id ? { ...s, ...p } : s) }))
   const [adding, setAdding] = useState(false)
-  const site = data.sites.find((x) => x.id === siteId)
-  const floors = site?.floors ?? ['קומה אחת']
-  const [form, setForm] = useState<{ name: string; typeId: string; level: Level; floor: number }>({ name: '', typeId: data.types[0]?.id ?? '', level: 2, floor: 0 })
-  const startAdd = () => { setForm({ name: '', typeId: data.types[0]?.id ?? '', level: 2, floor: 0 }); setAdding(true) }
+  const [form, setForm] = useState<{ name: string; typeId: string; level: Level }>({ name: '', typeId: data.types[0]?.id ?? '', level: 2 })
+  const startAdd = () => { setForm({ name: '', typeId: data.types[0]?.id ?? '', level: 2 }); setAdding(true) }
   const add = () => {
     if (!form.name.trim()) return
     const id = uid('s-')
-    setData((d) => ({ ...d, spaces: [{ id, siteId, name: form.name.trim(), typeId: form.typeId, level: form.level, floor: form.floor, blocked: [], activities: [], events: [] }, ...d.spaces] }))
+    setData((d) => ({ ...d, spaces: [{ id, siteId, name: form.name.trim(), typeId: form.typeId, level: form.level, blocked: [], activities: [], events: [] }, ...d.spaces] }))
     setOpen(id)
     setAdding(false)
   }
@@ -98,19 +96,11 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
               {LEVELS.map((l) => <option key={l} value={l}>רמה {l}</option>)}
             </select>
           </label>
-          {floors.length > 1 && (
-            <label>קומה
-              <select className="inp" value={form.floor} onChange={(e) => setForm({ ...form, floor: Number(e.target.value) })}>
-                {floors.map((f, i) => <option key={i} value={i}>{f}</option>)}
-              </select>
-            </label>
-          )}
           <p className="muted">מגבלות, פעילויות ואירועים מוסיפים אחרי היצירה, בכרטיס החלל.</p>
         </Modal>
       )}
-      <FloorsCard data={data} setData={setData} siteId={siteId} />
+      <SiteHoursCard data={data} setData={setData} siteId={siteId} />
       <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
-        onFloor={(id, floor) => patch(id, { floor })}
         onLevel={(id, level) => patch(id, { level })}
         onOpen={(id) => {
           setOpen(open === id ? null : id)
@@ -143,13 +133,6 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
                       {LEVELS.map((l) => <option key={l} value={l}>רמה {l}</option>)}
                     </select>
                   </label>
-                  {floors.length > 1 && (
-                    <label>קומה
-                      <select className="inp" value={s.floor ?? 0} onChange={(e) => patch(s.id, { floor: Number(e.target.value) })}>
-                        {floors.map((f, k) => <option key={k} value={k}>{f}</option>)}
-                      </select>
-                    </label>
-                  )}
                   <label>עקיפת משך<NumInput value={s.minutesOverride ?? 0} onChange={(v) => patch(s.id, { minutesOverride: v || undefined })} suffix="דק׳ (0=מטריצה)" /></label>
                   <label>עקיפת סבבים<NumInput value={s.roundsOverride ?? 0} max={12} onChange={(v) => patch(s.id, { roundsOverride: v || undefined })} suffix="ביום (0=מטריצה)" /></label>
                   <label>שעת ניקיון מועדפת
@@ -294,7 +277,6 @@ export function SettingsView({ data, setData, reset, siteId }: { data: AppData; 
           <label>סוף יום עבודה<TimeInput value={st.dayEnd} onChange={(v) => set({ dayEnd: v })} /></label>
           <label>סוף יום שישי<TimeInput value={st.fridayEnd} onChange={(v) => set({ fridayEnd: v })} /></label>
           <label>מרווח בין משימות<NumInput value={st.buffer} onChange={(v) => set({ buffer: v })} suffix="דק׳" /></label>
-          <label>זמן מעבר בין קומות<NumInput value={st.floorChangeMin} onChange={(v) => set({ floorChangeMin: v })} suffix="דק׳" /></label>
         </div>
         <div className="row wrap">
           <label>מקסימום שעות ביום (לפני שעות נוספות)<NumInput value={st.maxDailyHours} min={1} max={16} onChange={(v) => set({ maxDailyHours: v })} suffix="שעות" /></label>
@@ -352,27 +334,25 @@ function ManualJobs({ data, setData, siteId }: { data: AppData; setData: SetData
   )
 }
 
-function SpaceTable({ data, siteId, open, onLevel, onFloor, onOpen, renderDetail }: {
+function SpaceTable({ data, siteId, open, onLevel, onOpen, renderDetail }: {
   data: AppData; spaces: Space[]; siteId: string; open: string | null
-  onFloor: (id: string, floor: number) => void
   onLevel: (id: string, l: Level) => void; onOpen: (id: string) => void; renderDetail: (s: Space) => React.ReactNode
 }) {
   const [all, setAll] = useState(false)
   const groups = (all ? data.sites : data.sites.filter((x) => x.id === siteId))
-    .map((site) => ({ site, rows: data.spaces.filter((x) => x.siteId === site.id).sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0)) }))
+    .map((site) => ({ site, rows: data.spaces.filter((x) => x.siteId === site.id) }))
   const sum = (rows: Space[]) => [1, 2, 3].map((l) => rows.filter((x) => x.level === l).length)
   return (
     <Card title="רשימת חללים ורמת פעילות"
       actions={<label className="inline"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> הצג את כל הסניפים</label>}>
       {groups.map(({ site, rows }) => {
         const [a, b, c] = sum(rows)
-        const multi = site.floors.length > 1
         return (
           <div key={site.id} className="site-group">
             <h4>{site.name} <small className="muted">· {rows.length} חללים · רמה 1: {a} · רמה 2: {b} · רמה 3: {c}</small></h4>
             <div className="table-wrap">
               <table className="matrix compact">
-                <thead><tr><th>חלל</th><th>סוג חלל</th>{multi && <th>קומה</th>}<th>רמת פעילות</th><th>סבבים ביום</th><th>דק׳ לסבב</th><th>אילוצים</th><th /></tr></thead>
+                <thead><tr><th>חלל</th><th>סוג חלל</th><th>רמת פעילות</th><th>סבבים ביום</th><th>דק׳ לסבב</th><th>אילוצים</th><th /></tr></thead>
                 <tbody>
                   {rows.map((sp) => {
                     const type = data.types.find((t) => t.id === sp.typeId)
@@ -382,13 +362,6 @@ function SpaceTable({ data, siteId, open, onLevel, onFloor, onOpen, renderDetail
                       <tr className={open === sp.id ? 'hl' : ''}>
                         <td><b>{sp.name}</b></td>
                         <td>{type?.name}</td>
-                        {multi && (
-                          <td>
-                            <select className="inp" value={sp.floor ?? 0} aria-label={`קומה – ${sp.name}`} onChange={(e) => onFloor(sp.id, Number(e.target.value))}>
-                              {site.floors.map((f, i) => <option key={i} value={i}>{f}</option>)}
-                            </select>
-                          </td>
-                        )}
                         <td>
                           <select className={`inp lvlsel lvl${sp.level}`} value={sp.level} aria-label={`רמת פעילות – ${sp.name}`}
                             onChange={(e) => onLevel(sp.id, Number(e.target.value) as Level)}>
@@ -400,7 +373,7 @@ function SpaceTable({ data, siteId, open, onLevel, onFloor, onOpen, renderDetail
                         <td className="muted">{sp.blocked.length + sp.activities.length + sp.events.length || '—'}</td>
                         <td><Btn onClick={() => onOpen(sp.id)}>{open === sp.id ? 'סגור' : 'פרטים'}</Btn></td>
                       </tr>
-                      {open === sp.id && <tr className="detail"><td colSpan={8}>{renderDetail(sp)}</td></tr>}
+                      {open === sp.id && <tr className="detail"><td colSpan={7}>{renderDetail(sp)}</td></tr>}
                       </Fragment>
                     )
                   })}
@@ -414,44 +387,17 @@ function SpaceTable({ data, siteId, open, onLevel, onFloor, onOpen, renderDetail
   )
 }
 
-function FloorsCard({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
+function SiteHoursCard({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
   const site = data.sites.find((x) => x.id === siteId)
   if (!site) return null
-  const setFloors = (floors: string[], remap?: (f: number) => number) =>
-    setData((d) => ({
-      ...d,
-      sites: d.sites.map((x) => x.id === siteId ? { ...x, floors } : x),
-      spaces: remap ? d.spaces.map((sp) => sp.siteId === siteId ? { ...sp, floor: remap(sp.floor ?? 0) } : sp) : d.spaces,
-    }))
-  const count = (i: number) => data.spaces.filter((sp) => sp.siteId === siteId && (sp.floor ?? 0) === i).length
+  const setHours = (h: { start: number; end: number }) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, hours: h } : x) }))
+  const hrs = { start: site.hours?.start ?? data.settings.dayStart, end: site.hours?.end ?? data.settings.dayEnd }
   return (
-    <Card title={`קומות ושעות פעילות – ${site.name}`}
-      actions={<Btn onClick={() => setFloors([...site.floors, `קומה ${site.floors.length}`])}>+ הוסף קומה</Btn>}>
-      <p className="muted">
-        המערכת מנסה שעובד ינקה קומה אחת לפני שהוא עובר לאחרת. כל מעבר בין קומות לוקח זמן ({data.settings.floorChangeMin} דק׳, בהגדרות).
-        {site.floors.length === 1 && ' בסניף עם קומה אחת אין השפעה; הוסיפו קומות כדי לשייך חללים לקומות.'}
-      </p>
-      <div className="row wrap" style={{ marginBottom: 10 }}>
-        <label>שעות פעילות הסניף – מתחילת היום
-          <TimeInput value={site.hours?.start ?? data.settings.dayStart} onChange={(v) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, hours: { start: v, end: x.hours?.end ?? d.settings.dayEnd } } : x) }))} />
-        </label>
-        <label>עד
-          <TimeInput value={site.hours?.end ?? data.settings.dayEnd} onChange={(v) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, hours: { start: x.hours?.start ?? d.settings.dayStart, end: v } } : x) }))} />
-        </label>
-        <small className="muted">סבבי ניקיון חוזרים (רמה 2–3) מתפזרים בתוך השעות האלה</small>
-      </div>
+    <Card title={`שעות פעילות – ${site.name}`}>
       <div className="row wrap">
-        {site.floors.map((f, i) => (
-          <span className="floorchip" key={i}>
-            <input className="inp" value={f} aria-label={`שם קומה ${i}`} onChange={(e) => setFloors(site.floors.map((x, k) => k === i ? e.target.value : x))} />
-            <small className="muted">{count(i)} חללים</small>
-            {site.floors.length > 1 && (
-              <button className="x" aria-label={`מחק ${f}`} title="מחק קומה (החללים עוברים לקומה הקודמת)"
-                onClick={() => confirm(`למחוק את "${f}"? ${count(i)} חללים יועברו לקומה הקודמת.`) &&
-                  setFloors(site.floors.filter((_, k) => k !== i), (fl) => fl === i ? Math.max(0, i - 1) : fl > i ? fl - 1 : fl)}>×</button>
-            )}
-          </span>
-        ))}
+        <label>מתחילת היום<TimeInput value={hrs.start} onChange={(v) => setHours({ ...hrs, start: v })} /></label>
+        <label>עד<TimeInput value={hrs.end} onChange={(v) => setHours({ ...hrs, end: v })} /></label>
+        <small className="muted">סבבי ניקיון חוזרים (רמה 2–3) מתפזרים בתוך השעות האלה</small>
       </div>
     </Card>
   )

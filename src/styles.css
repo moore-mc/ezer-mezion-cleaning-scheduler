@@ -190,9 +190,6 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .matrix tr.detail > td { padding: 8px 0 14px; background: var(--brand-soft); }
 .matrix tr.detail .card { box-shadow: none; border: 1px solid var(--line); }
 
-.floorchip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); padding: 4px 8px; border-radius: 10px; }
-.floorchip .inp { width: 120px; }
-.floorchip .x { font-size: 20px; }
 .chip.floor { background: var(--surface); color: var(--ink); font-size: 11px; padding: 0 7px; margin-inline-end: 6px; }
 
 .reco { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--brand-soft); display: grid; gap: 8px; }
@@ -270,3 +267,5 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .col { min-width: 0; }
 .lrow { min-width: 0; overflow: hidden; }
 .lrow .lm { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+
+.col header .sumh { display: block; margin-top: 2px; font-size: 15px; }

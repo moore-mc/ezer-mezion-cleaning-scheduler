@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Override } from './types'
 import type { FixPlan } from './recommend'
 import { uid } from './ui'
-import { addDays, floorMoves, hoursReport, overrideKey, schedule, weekStartOf } from './scheduler'
+import { addDays, hoursReport, overrideKey, schedule, weekStartOf } from './scheduler'
 import { useData } from './store'
 import ScheduleView from './ScheduleView'
 import PrintView from './PrintView'
@@ -55,8 +55,6 @@ export default function App() {
       return { ...d, overrides }
     })
 
-  const moves = floorMoves(result, siteData).total
-  const multiFloor = (data.sites.find((x) => x.id === siteId)?.floors.length ?? 1) > 1
   const overtime = hoursReport(result, siteData).alerts.length
   const applyPlan = (plan: FixPlan) =>
     setData((d) => ({
@@ -108,7 +106,6 @@ export default function App() {
                 <div className={`kpi ${warns ? 'warn' : ''}`}><b>{warns}</b><span>אזהרות עקיפה</span></div>
                 <div className={`kpi ${overtime ? 'bad' : ''}`}><b>{overtime}</b><span>התראות שעות נוספות</span></div>
                 <div className="kpi"><b>{(minutes / 60).toFixed(1)}</b><span>שעות ניקיון</span></div>
-                {multiFloor && <div className="kpi"><b>{moves}</b><span>מעברי קומה בשבוע</span></div>}
               </div>
             </div>
             <PrintView data={siteData} siteName={data.sites.find((x) => x.id === siteId)?.name ?? ''} weekStart={weekStart} result={result} />

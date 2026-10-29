@@ -40,26 +40,16 @@ for (const t of types) {
 }
 
 const sites = [
-  { id: 'bb', name: 'בני ברק – גוטמאכר 8 (מעון)', floors: ['קרקע', 'קומה 1', 'קומה 2', 'קומה 3'], hours: { start: h(7, 30), end: h(17) } },
-  { id: 'pt', name: 'פתח תקווה – שושנים 12', floors: ['קומה אחת'], hours: { start: h(8), end: h(18) } },
-  { id: 'rg', name: 'רמת גן – שד׳ ירושלים', floors: ['קומה אחת'], hours: { start: h(8), end: h(17) } },
+  { id: 'bb', name: 'בני ברק – גוטמאכר 8 (מעון)', hours: { start: h(7, 30), end: h(17) } },
+  { id: 'pt', name: 'פתח תקווה – שושנים 12', hours: { start: h(8), end: h(18) } },
+  { id: 'rg', name: 'רמת גן – שד׳ ירושלים', hours: { start: h(8), end: h(17) } },
 ]
-
-// Gutmacher 8 has 4 floors. The file does not say what is where, so this is an illustrative layout (editable):
-// ground = lobby, lifts/stairs, kitchen, storage, yard; 1 = daycare rooms, gymboree + kids' toilets;
-// 2 = open offices (high activity) + coffee corner; 3 = offices (medium activity).
-const BB_FLOORS: Record<string, number> = {
-  'bb-A1': 0, 'bb-C1': 0, 'bb-D1': 0, 'bb-G1': 0, 'bb-K1': 0, 'bb-K2': 0, 'bb-K3': 0, 'bb-K4': 0, 'bb-M1': 0, 'bb-O1': 0, 'bb-P1': 0,
-  'bb-H1': 1, 'bb-H2': 1, 'bb-L1': 1, 'bb-G4': 1, 'bb-G5': 1, 'bb-G6': 1, 'bb-G7': 1,
-  'bb-B1': 2, 'bb-C2': 2, 'bb-E4': 2, 'bb-E5': 2, 'bb-E6': 2, 'bb-E7': 2, 'bb-G2': 2, 'bb-N1': 2,
-  'bb-E1': 3, 'bb-E2': 3, 'bb-E3': 3, 'bb-C3': 3, 'bb-G3': 3,
-}
 
 const spaces: Space[] = FILE_SITES.flatMap((site) =>
   site.rows.flatMap((row) =>
     row.codes.map((code): Space => ({
       id: `${site.id}-${code}`, siteId: site.id, name: `${row.type} ${code}`,
-      typeId: slug(row.type), level: row.level, floor: BB_FLOORS[`${site.id}-${code}`] ?? 0,
+      typeId: slug(row.type), level: row.level,
       blocked: [], activities: [], events: [],
     }))))
 
@@ -125,7 +115,7 @@ const workers: Worker[] = [
 
 export const seed: AppData = {
   sites,
-  settings: { dayStart: h(6), dayEnd: h(22), fridayEnd: h(14), buffer: 0, floorChangeMin: 8, maxDailyHours: 8, maxWeeklyHours: 42, workDays: [0, 1, 2, 3, 4, 5], closedDates: [] },
+  settings: { dayStart: h(6), dayEnd: h(22), fridayEnd: h(14), buffer: 0, maxDailyHours: 8, maxWeeklyHours: 42, workDays: [0, 1, 2, 3, 4, 5], closedDates: [] },
   types, spaces, workers,
   manualJobs: [],
   overrides: {},

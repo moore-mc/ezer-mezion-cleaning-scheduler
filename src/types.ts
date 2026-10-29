@@ -56,8 +56,6 @@ export interface SpecialEvent {
 export interface Site {
   id: string
   name: string
-  /** Floor names, index = floor number (a single-floor site has one entry). */
-  floors: string[]
   /** Opening hours: repeated cleaning rounds (activity level 2-3) are spread inside them. Default: whole working day. */
   hours?: { start: number; end: number }
 }
@@ -71,8 +69,6 @@ export interface Space {
   /** Optional per-space overrides of the matrix cell (rounds per day / minutes per round). */
   minutesOverride?: number
   roundsOverride?: number
-  /** Index into the site's floors (default 0). */
-  floor?: number
   /** Preferred part of the day for once-a-day / weekly cleans: before 12:00 or after 12:00. */
   slot?: 'morning' | 'evening'
   /** Recurring weekly windows in which cleaning is impossible. */
@@ -115,8 +111,6 @@ export interface Settings {
   fridayEnd: number
   /** Minutes between consecutive jobs of the same worker (travel / equipment). */
   buffer: number
-  /** Extra minutes a cleaner needs to move to another floor (lift, stairs, equipment). */
-  floorChangeMin: number
   /** Presence beyond this many hours a day / week triggers an overtime warning (standard Israeli day = 8h, week = 42h). */
   maxDailyHours: number
   maxWeeklyHours: number
@@ -148,7 +142,6 @@ export interface Job {
   earliest: number
   deadline: number
   priority: number
-  floor?: number
 }
 
 export interface Placement {
