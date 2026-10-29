@@ -39,14 +39,15 @@ for (const t of types) {
   t.matrix = { 1: { ...cell }, 2: { ...cell }, 3: { ...cell } }
 }
 
-// Refrigerators are cleaned once a week, not every day (all sites): the daily list becomes the weekly list.
+// Cleaned once a week only, not every day (all sites): the daily list is folded into the weekly list.
+const WEEKLY_ONLY = ['מקרר', 'מחסן / חדר שירות']
 for (const t of types) {
-  if (t.name !== 'מקרר' || !t.tasks) continue
+  if (!WEEKLY_ONLY.includes(t.name) || !t.tasks) continue
   const items = t.tasks.daily
   t.tasks = { ...t.tasks, daily: [], weekly: [...items, ...t.tasks.weekly] }
   const zero = { minutes: 0, roundsPerDay: 0 }
   t.matrix = { 1: { ...zero }, 2: { ...zero }, 3: { ...zero } }
-  t.weeklyMin = Math.max(10, round5(t.tasks.weekly.length * MIN_PER_DAILY_ITEM))
+  t.weeklyMin = Math.max(10, round5(t.weeklyMin + items.length * MIN_PER_DAILY_ITEM))
 }
 
 const sites: Site[] = [
