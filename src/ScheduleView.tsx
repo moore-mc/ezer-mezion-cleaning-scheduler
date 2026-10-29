@@ -32,7 +32,6 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     return i >= 0 && i < 7 ? i : 0
   })
   const [selected, setSelected] = useState<string | null>(null)
-  const [detail, setDetail] = useState(false)
   const [view, setView] = useState<'list' | 'timeline'>(() => {
     try { return localStorage.getItem('ezer-view') === 'timeline' ? 'timeline' : 'list' } catch { return 'list' }
   })
@@ -188,7 +187,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     const dayIdx = [0, 1, 2, 3, 4, 5, ...(result.placements.some((p) => Math.floor(p.start / DAY) === 6) ? [6] : [])]
     const multi = !!site && site.floors.length > 1
     const open = (d: number) => {
-      setDay(d); setDetail(true)
+      setDay(d)
       setTimeout(() => document.getElementById('day-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
     }
     const dayLimit = data.settings.maxDailyHours * 60, weekLimit = data.settings.maxWeeklyHours * 60
@@ -281,11 +280,6 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     <div className="sched">
       <Card title="סיכום שבועי – מה כל עובד עושה בכל יום"><WeekSummary /></Card>
 
-      <div className="detail-toggle">
-        <Btn onClick={() => setDetail(!detail)}>{detail ? 'הסתר את הפירוט השעתי' : 'הצג פירוט שעתי לפי יום'}</Btn>
-      </div>
-
-      {detail && <>
       <div className="daytabs">
         {DAY_NAMES.map((n, d) => {
           const isClosed = data.settings.closedDates.includes(addDays(weekStart, d))
@@ -302,7 +296,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
       </div>
 
       <div id="day-detail" />
-      <Card title={`פירוט שעתי – יום ${DAY_NAMES[day]}`} actions={<div className="viewbar">
+      <Card title={`משימות העובדים – יום ${DAY_NAMES[day]}`} actions={<div className="viewbar">
         <div className="legend">{dayTypes.map((i) => <span key={i}><i style={{ ['--h' as string]: hueOf(i) } as React.CSSProperties} className="tcol" />{data.types[i].name}</span>)}</div>
         <div className="seg" role="group" aria-label="תצוגה">
           <button className={view === 'list' ? 'on' : ''} onClick={() => changeView('list')}>רשימה</button>
@@ -350,7 +344,6 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
           </div>
         )}
       </Card>
-      </>}
 
       {hours.alerts.length > 0 && (
         <Card title={`התראות שעות נוספות (${hours.alerts.length})`}>
