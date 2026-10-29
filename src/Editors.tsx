@@ -9,6 +9,17 @@ const COLORS = ['#2f7f6f', '#c2703d', '#5b6bbf', '#b5476b', '#7a8f2a', '#2e86a8'
 
 // ───────────── matrix ─────────────
 
+/** Monthly list frequency presets, in weeks. */
+export const EVERY_PRESETS = [
+  { w: 1, label: 'כל שבוע' },
+  { w: 2, label: 'כל שבועיים' },
+  { w: 4, label: 'פעם בחודש' },
+  { w: 8, label: 'פעם בחודשיים' },
+  { w: 13, label: 'פעם ב-3 חודשים' },
+  { w: 26, label: 'פעם בחצי שנה' },
+  { w: 52, label: 'פעם בשנה' },
+]
+
 const LIST_KEYS = [
   { k: 'daily', label: 'יומי' },
   { k: 'weekly', label: 'שבועי' },
@@ -45,14 +56,14 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
           if (!name) return
           const c = (r: number) => ({ minutes: 30, roundsPerDay: r })
           setSavedAt(null)
-          setDraft((ts) => [...ts, { id: uid('t-'), name, weeklyMin: 0, monthlyMin: 0, weeklyTimes: 1, monthlyTimes: 1, matrix: { 1: c(1), 2: c(2), 3: c(5) }, tasks: { daily: [], weekly: [], monthly: [], yearly: [] } }])
+          setDraft((ts) => [...ts, { id: uid('t-'), name, weeklyMin: 0, monthlyMin: 0, weeklyTimes: 1, monthlyEveryWeeks: 4, matrix: { 1: c(1), 2: c(2), 3: c(5) }, tasks: { daily: [], weekly: [], monthly: [], yearly: [] } }])
         }}>+ סוג חלל</Btn></div>}>
       <div className="legendbox">
         <p><b>איך קוראים את המטריצה:</b> לכל סוג חלל יש רשימות משימות בשלוש תדירויות, וכאן קובעים <b>כמה זמן</b> לוקח כל ניקיון ו<b>כמה פעמים</b> הוא מתבצע.</p>
         <ul>
           <li><b>ניקיון יומי</b> – הרשימה היומית של החלל. מתבצע בכל יום עבודה; כמה <b>סבבים ביום</b> תלוי ברמת הפעילות של החלל (1 = נמוכה, 3 = גבוהה).</li>
           <li><b>ניקיון שבועי</b> – משימות עומק שלא עושים כל יום (למשל חלונות, ארונות). קובעים כמה דקות וכמה <b>פעמים בשבוע</b> (ברירת מחדל: פעם אחת).</li>
-          <li><b>ניקיון חודשי</b> – משימות עומק נוספות. קובעים כמה דקות וכמה פעמים <b>ב-4 שבועות</b> (פעם אחת, פעמיים או כל שבוע).</li>
+          <li><b>ניקיון חודשי</b> – משימות עומק נוספות. קובעים כמה דקות וכל כמה זמן: <b>פעם בחודש, פעם בחודשיים, פעם ב-3 חודשים</b> ועוד (או מספר שבועות לבחירתך).</li>
           <li><b>שנתי</b> – רשימה לעיון בלבד; לא נכנסת ללו״ז.</li>
         </ul>
         <p className="muted">משכי הזמן הם הערכה ונקבעים כאן; אפשר לעקוף אותם בכל חלל. את רשימות המשימות עצמן אפשר להוסיף ולערוך בלחיצה על "רשימות משימות" מתחת לשם הסוג.</p>
@@ -69,7 +80,7 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
             <tr>
               {LEVELS.map((l) => <th key={l} className="g-daily"><LevelPill level={l} /></th>)}
               <th className="g-weekly">דקות · פעמים בשבוע</th>
-              <th className="g-monthly">דקות · פעמים ב-4 שבועות</th>
+              <th className="g-monthly">דקות · כל כמה זמן</th>
             </tr>
           </thead>
           <tbody>
@@ -106,10 +117,14 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
                 <td className="g-monthly">
                   <div className="cellgrid">
                     <NumInput value={t.monthlyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, monthlyMin: v }))} suffix="דק׳" />
-                    <select className="inp" value={t.monthlyTimes ?? 1} onChange={(e) => patchType(t.id, (x) => ({ ...x, monthlyTimes: Number(e.target.value) }))}>
-                      <option value={1}>פעם ב-4 שבועות</option>
-                      <option value={2}>פעמיים ב-4 שבועות</option>
-                      <option value={4}>כל שבוע</option>
+                    <select className="inp" value={EVERY_PRESETS.some((p) => p.w === (t.monthlyEveryWeeks ?? 4)) ? (t.monthlyEveryWeeks ?? 4) : 0}
+                      onChange={(e) => {
+                        let w = Number(e.target.value)
+                        if (w === 0) { const v = Number(prompt('כל כמה שבועות לבצע את הניקיון החודשי?', String(t.monthlyEveryWeeks ?? 4))); if (!v || v < 1) return; w = Math.round(v) }
+                        patchType(t.id, (x) => ({ ...x, monthlyEveryWeeks: w }))
+                      }}>
+                      {EVERY_PRESETS.map((p) => <option key={p.w} value={p.w}>{p.label}</option>)}
+                      <option value={0}>{EVERY_PRESETS.some((p) => p.w === (t.monthlyEveryWeeks ?? 4)) ? 'אחר (בשבועות)…' : `כל ${t.monthlyEveryWeeks} שבועות`}</option>
                     </select>
                   </div>
                 </td>

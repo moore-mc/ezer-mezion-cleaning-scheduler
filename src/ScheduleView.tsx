@@ -313,6 +313,9 @@ function JobPanel({ data, job, placement, unscheduled, override, spaceName, onCl
   )
 }
 
+const everyText = (w: number) =>
+  w === 1 ? 'כל שבוע' : w === 2 ? 'כל שבועיים' : w === 4 ? 'פעם בחודש (כל 4 שבועות)' : w === 8 ? 'פעם בחודשיים (כל 8 שבועות)' : w === 13 ? 'פעם ב-3 חודשים (כל 13 שבועות)' : w === 26 ? 'פעם בחצי שנה' : w === 52 ? 'פעם בשנה' : `כל ${w} שבועות`
+
 function SpacePanel({ data, spaceId, group, onClose, onEdit }: {
   data: AppData; spaceId: string; group: Group; onClose: () => void; onEdit: () => void
 }) {
@@ -329,7 +332,7 @@ function SpacePanel({ data, spaceId, group, onClose, onEdit }: {
         <div><small>{type?.name} · רמה {space?.level}</small><h3>{space?.name}</h3><p>{g.title}</p></div>
         <button className="x" onClick={onClose} aria-label="סגור">×</button>
       </header>
-      <p className="muted">{g.hint}.{group === 'daily' && rounds ? ` מתבצע ${rounds === 1 ? 'פעם אחת' : `${rounds} פעמים (סבבים)`} ביום בכל יום עבודה.` : ''}{group === 'weekly' ? ' מתבצע פעם אחת בשבוע, ביום קבוע שנבחר לחלל.' : ''}{group === 'monthly' ? ' מתבצע פעם ב-4 שבועות.' : ''}</p>
+      <p className="muted">{g.hint}.{group === 'daily' && rounds ? ` מתבצע ${rounds === 1 ? 'פעם אחת' : `${rounds} פעמים (סבבים)`} ביום בכל יום עבודה.` : ''}{group === 'weekly' ? ' מתבצע פעם אחת בשבוע, ביום קבוע שנבחר לחלל.' : ''}{group === 'monthly' ? ` מתבצע ${everyText(type?.monthlyEveryWeeks ?? 4)}.` : ''}</p>
       <h4>מה מנקים</h4>
       {list && list.length > 0 ? (
         <ul className="checklist">{list.map((t) => <li key={t}>{t}</li>)}</ul>
