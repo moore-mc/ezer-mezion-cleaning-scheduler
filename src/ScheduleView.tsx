@@ -137,7 +137,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                       <div>
                         <b>{h.worker.name}</b> <small className="muted">· כ-{hh(h.weeklyMin)} ש׳ בשבוע</small>
                         {groupWindows(h.windows).map((g, i) => (
-                          <div key={i}>{g.days.map((d) => SHORT[d]).join(' ')} · <span className="ltr">{fmt(g.start)}–{fmt(g.end)}</span></div>
+                          <div key={i}>{g.days.map((d) => SHORT[d]).join(' ')} · <span className="ltr">{fmt(g.start)}–{fmt(g.end)}</span>{g.second && <> + <span className="ltr">{fmt(g.second.start)}–{fmt(g.second.end)}</span></>}</div>
                         ))}
                       </div>
                       <Btn onClick={() => applyPlan({ ...plan, extensions: [], hires: [h] })}>הוסף עובד</Btn>

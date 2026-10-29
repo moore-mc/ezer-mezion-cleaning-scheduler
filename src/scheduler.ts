@@ -242,6 +242,12 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
 
 // ───────────── availability ─────────────
 
+export function blockedForSpace(data: AppData, spaceId: string, weekStart: string): [number, number][] {
+  const sp = data.spaces.find((x) => x.id === spaceId)
+  const rules = data.sites.find((x) => x.id === sp?.siteId)?.rules ?? []
+  return blockedFor(sp, weekStart, rules) as [number, number][]
+}
+
 function blockedFor(space: Space | undefined, weekStart: string, rules: SiteRule[] = []): Interval[] {
   if (!space) return []
   const out: Interval[] = []
