@@ -231,13 +231,13 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                 ))}
               </ul>
               <p className="muted">
-                {rec.unfixable.length > 0 ? `${rec.unfixable.length} משימות יישארו ללא שיבוץ וידרשו שינוי אילוץ או שיבוץ ידני.` : 'כל המשימות ישובצו.'}
+                {rec.unfixable.length > 0 ? `${rec.unfixable.length} משימות יישארו ללא שיבוץ גם אחרי ההוספה; לפתרון: זמינות רחבה יותר, שינוי אילוץ או שיבוץ ידני.` : 'כל המשימות ישובצו.'}
                 המלצה מבוססת על חלונות עבודה של עד {data.settings.maxDailyHours} שעות ביום.
               </p>
               <Btn kind="primary" onClick={() => addWorkers(rec.hires.map((h) => h.worker))}>הוסף את העובדים לסניף</Btn>
             </div>
           )}
-          {rec && rec.hires.length === 0 && <p className="muted">תוספת עובדים לא תפתור את המשימות האלה – הסיבה מופיעה לכל משימה.</p>}
+          {rec && rec.hires.length === 0 && <p className="muted">לא מצאתי תוספת עובדים שתשפר את השיבוץ. כדאי להרחיב את הזמינות של עובדים קיימים (לשונית "עובדים"), לשנות אילוץ של החלל, או לשבץ ידנית – הסיבה לכל משימה מופיעה למעלה.</p>}
         </Card>
 
         <Card title={`שינויים ידניים (${overridden.length})`}>

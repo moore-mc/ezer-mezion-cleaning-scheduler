@@ -76,18 +76,38 @@ export function recommendHires(data: AppData, weekStart: string, siteId: string)
     }
     kept.sort((x, y) => x.day - y.day)
 
-    const worker: Worker = {
+    const mk = (win: HireWindow[]): Worker => ({
       id: `rec-${n + 1}`, siteId, name: `עובד נוסף ${n + 1}`, color: COLORS[n % COLORS.length], absences: [],
       shifts: Array.from({ length: 7 }, (_, d) => {
-        const w = kept.find((k) => k.day === d)
+        const w = win.find((k) => k.day === d)
         return w ? { start: w.start, end: w.end } : null
       }),
+    })
+
+    // Candidate 1: windows targeted at the days that have unplaced jobs.
+    // Candidate 2 (when 1 does not help, e.g. the shortage is spread over several days): the same time-of-day window on every working day.
+    const tod = todo.map((j) => ({ a: j.job.earliest % DAY, b: ((j.job.deadline - 1) % DAY) + 1 }))
+    const wa = Math.min(...tod.map((x) => x.a)), wb = Math.max(...tod.map((x) => x.b))
+    const allDays: HireWindow[] = data.settings.workDays.map((d) => ({
+      day: d, start: Math.max(PLAN_FROM, wa), end: Math.min(PLAN_TO, Math.max(wb, wa + 60), Math.max(PLAN_FROM, wa) + maxDay), jobs: 0,
+    }))
+    const total2 = allDays.reduce((acc, w) => acc + (w.end - w.start), 0)
+    const candidates: { win: HireWindow[]; total: number }[] = [{ win: kept, total }]
+    if (total2 <= maxWeek) candidates.push({ win: allDays, total: total2 })
+
+    let accepted = false
+    for (const c of candidates) {
+      const worker = mk(c.win)
+      const next = schedule({ ...current, workers: [...current.workers, worker] }, weekStart)
+      if (next.unscheduled.length < result.unscheduled.length) {
+        hires.push({ worker, windows: c.win, weeklyMin: c.total })
+        current = { ...current, workers: [...current.workers, worker] }
+        result = next
+        accepted = true
+        break
+      }
     }
-    hires.push({ worker, windows: kept, weeklyMin: total })
-    current = { ...current, workers: [...current.workers, worker] }
-    const next = schedule(current, weekStart)
-    if (next.unscheduled.length >= result.unscheduled.length) { hires.pop(); break } // no progress
-    result = next
+    if (!accepted) break // no extra person helps
   }
 
   return { hires, resolved: startUnsched - result.unscheduled.length, unfixable: result.unscheduled }
