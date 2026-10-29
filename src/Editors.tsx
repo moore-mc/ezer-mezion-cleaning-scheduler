@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import type { AppData, FreqRule, Level, SiteRule, Space, SpaceType, Worker } from './types'
+import type { AppData, FreqRule, Level, SiteRule, Space, SpaceType, TypeOverride, Worker } from './types'
 import { DAY_NAMES, spaceMinutes } from './scheduler'
 import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
 
@@ -176,6 +176,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
       <SiteHoursCard data={data} setData={setData} siteId={siteId} />
       <SiteRulesCard data={data} setData={setData} siteId={siteId} />
       <FreqRulesCard data={data} setData={setData} siteId={siteId} />
+      <SiteDurationsCard data={data} setData={setData} siteId={siteId} />
       <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
         onLevel={(id, level) => patch(id, { level })}
         onOpen={(id) => {
@@ -618,6 +619,75 @@ function FreqRulesCard({ data, setData, siteId }: { data: AppData; setData: SetD
           </div>
         </div>
       ))}
+    </Card>
+  )
+}
+
+/** Number input that can be empty (= "use the matrix value"). */
+function OptNum({ value, placeholder, onChange, min = 1, max }: { value?: number; placeholder?: number; onChange: (v: number | undefined) => void; min?: number; max?: number }) {
+  return (
+    <input className="inp num opt" type="number" min={min} max={max} value={value ?? ''} placeholder={placeholder === undefined ? '' : String(placeholder)}
+      onChange={(e) => onChange(e.target.value === '' ? undefined : Math.max(min, Number(e.target.value)))} />
+  )
+}
+
+function SiteDurationsCard({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
+  const site = data.sites.find((x) => x.id === siteId)
+  if (!site) return null
+  const types = [...new Set(data.spaces.filter((x) => x.siteId === siteId).map((x) => x.typeId))]
+    .map((id) => data.types.find((t) => t.id === id)).filter(Boolean) as SpaceType[]
+  const ov = site.overrides ?? {}
+  const byType = ov.byType ?? {}
+  const setOv = (next: NonNullable<typeof site.overrides>) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, overrides: next } : x) }))
+  const patchType = (typeId: string, p: Partial<TypeOverride>) => {
+    const merged = { ...(byType[typeId] ?? {}), ...p }
+    const clean = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined)) as TypeOverride
+    const next = { ...byType }
+    if (Object.keys(clean).length) next[typeId] = clean
+    else delete next[typeId]
+    setOv({ ...ov, byType: next })
+  }
+  const count = Object.keys(byType).length + (ov.scalePct && ov.scalePct !== 100 ? 1 : 0)
+  const levelOf = (t: SpaceType) => t.matrix[1]
+  return (
+    <Card title={`משכי ניקיון ותדירויות בסניף – עקיפת המטריצה${count ? ` (${count} עקיפות)` : ''}`}
+      actions={count > 0 ? <Btn onClick={() => confirm('לבטל את כל העקיפות של הסניף ולחזור לערכי המטריצה?') && setOv({})}>אפס עקיפות</Btn> : undefined}>
+      <p className="muted">
+        ערכי המטריצה הם ברירת מחדל לכל הסניפים. כאן אפשר לעקוף אותם <b>לסניף הזה בלבד</b>, לכל סוג חלל: משך הניקיון היומי, השבועי והחודשי והתדירויות שלהם.
+        שדה ריק = לפי המטריצה (הערך מוצג בבהיר). משך שהוגדר בכרטיס של חלל בודד גובר על כל השאר.
+      </p>
+      <div className="row wrap" style={{ marginBottom: 8 }}>
+        <label>קנה מידה לכל משכי הניקיון בסניף
+          <span className="numwrap"><OptNum value={ov.scalePct} placeholder={100} min={10} max={300} onChange={(v) => setOv({ ...ov, scalePct: v })} /><span className="suffix">% (100 = ללא שינוי)</span></span>
+        </label>
+      </div>
+      <div className="table-wrap">
+        <table className="matrix compact">
+          <thead><tr><th>סוג חלל</th><th>יומי (דק׳ לסבב)</th><th>שבועי (דק׳)</th><th>פעמים בשבוע</th><th>חודשי (דק׳)</th><th>כל כמה זמן (חודשי)</th><th /></tr></thead>
+          <tbody>
+            {types.map((t) => {
+              const o = byType[t.id] ?? {}
+              const has = Object.keys(o).length > 0
+              return (
+                <tr key={t.id} className={has ? 'hl' : ''}>
+                  <td><b>{t.name}</b></td>
+                  <td><OptNum value={o.daily} placeholder={levelOf(t).minutes} onChange={(v) => patchType(t.id, { daily: v })} /></td>
+                  <td><OptNum value={o.weekly} placeholder={t.weeklyMin} onChange={(v) => patchType(t.id, { weekly: v })} /></td>
+                  <td><OptNum value={o.weeklyTimes} placeholder={t.weeklyTimes ?? 1} max={7} onChange={(v) => patchType(t.id, { weeklyTimes: v })} /></td>
+                  <td><OptNum value={o.monthly} placeholder={t.monthlyMin} onChange={(v) => patchType(t.id, { monthly: v })} /></td>
+                  <td>
+                    <select className="inp" value={o.monthlyEveryWeeks ?? ''} onChange={(e) => patchType(t.id, { monthlyEveryWeeks: e.target.value === '' ? undefined : Number(e.target.value) })}>
+                      <option value="">לפי המטריצה ({EVERY_PRESETS.find((p) => p.w === (t.monthlyEveryWeeks ?? 4))?.label ?? `כל ${t.monthlyEveryWeeks} שבועות`})</option>
+                      {EVERY_PRESETS.map((p) => <option key={p.w} value={p.w}>{p.label}</option>)}
+                    </select>
+                  </td>
+                  <td>{has && <Btn onClick={() => patchType(t.id, { daily: undefined, weekly: undefined, weeklyTimes: undefined, monthly: undefined, monthlyEveryWeeks: undefined })}>אפס</Btn>}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </Card>
   )
 }

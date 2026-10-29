@@ -292,3 +292,5 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .mx td.g-daily { background: color-mix(in srgb, #2f7f6f 4%, transparent); } .mx td.g-weekly { background: color-mix(in srgb, #5b6bbf 5%, transparent); } .mx td.g-monthly { background: color-mix(in srgb, #c2703d 5%, transparent); }
 .listedit { display: grid; gap: 8px; margin-top: 6px; min-width: 300px; } .listedit textarea { width: 100%; font: inherit; line-height: 1.4; }
 .mx select.inp { min-width: 150px; }
+
+.inp.opt { width: 80px; } .inp.opt::placeholder { color: var(--muted); opacity: .8; }

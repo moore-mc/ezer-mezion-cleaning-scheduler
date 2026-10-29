@@ -77,6 +77,15 @@ export interface FreqRule {
   timesPerWeek: number
 }
 
+/** Per-site override of the matrix for one space type (any field left undefined = use the matrix). */
+export interface TypeOverride {
+  daily?: number // minutes per daily round
+  weekly?: number // minutes of the weekly clean
+  weeklyTimes?: number
+  monthly?: number // minutes of the monthly clean
+  monthlyEveryWeeks?: number
+}
+
 export interface Site {
   id: string
   name: string
@@ -86,6 +95,8 @@ export interface Site {
   rules?: SiteRule[]
   /** Site-wide cleaning frequency (times a week) for all / some spaces. */
   freqRules?: FreqRule[]
+  /** Site-level override of durations / frequencies of the matrix, per space type, and a scale for all durations (percent, default 100). */
+  overrides?: { scalePct?: number; byType?: Record<string, TypeOverride> }
 }
 
 export interface Space {

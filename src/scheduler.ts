@@ -51,13 +51,17 @@ const overlaps = (a: Interval, b: readonly number[], pad = 0) => a[0] < b[1] + p
 function cellOf(data: AppData, space: Space) {
   const type = data.types.find((t) => t.id === space.typeId)
   const base = type?.matrix[space.level] ?? { minutes: 30, roundsPerDay: 1 }
+  const site = data.sites.find((x) => x.id === space.siteId)
+  const o = site?.overrides?.byType?.[space.typeId]
+  const pct = (site?.overrides?.scalePct ?? 100) / 100
+  const scale = (m: number) => (m > 0 ? Math.max(1, Math.round(m * pct)) : 0)
   return {
-    minutes: space.minutesOverride ?? base.minutes,
+    minutes: space.minutesOverride ?? scale(o?.daily ?? base.minutes), // a space's own value is not scaled
     rounds: space.roundsOverride ?? base.roundsPerDay,
-    weeklyMin: type?.weeklyMin ?? 0,
-    monthlyMin: type?.monthlyMin ?? 0,
-    weeklyTimes: Math.max(1, type?.weeklyTimes ?? 1),
-    monthlyEvery: Math.max(1, Math.round(type?.monthlyEveryWeeks ?? 4)),
+    weeklyMin: scale(o?.weekly ?? type?.weeklyMin ?? 0),
+    monthlyMin: scale(o?.monthly ?? type?.monthlyMin ?? 0),
+    weeklyTimes: Math.max(1, o?.weeklyTimes ?? type?.weeklyTimes ?? 1),
+    monthlyEvery: Math.max(1, Math.round(o?.monthlyEveryWeeks ?? type?.monthlyEveryWeeks ?? 4)),
   }
 }
 
