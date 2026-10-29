@@ -266,6 +266,10 @@ function shiftsFor(worker: Worker, data: AppData, weekStart: string): Interval[]
     if (worker.absences.includes(addDays(weekStart, d))) return
     out.push([d * DAY + s.start, d * DAY + s.end])
   })
+  worker.extra?.forEach((s, d) => {
+    if (!s || closed.has(d) || worker.absences.includes(addDays(weekStart, d))) return
+    out.push([d * DAY + s.start, d * DAY + s.end])
+  })
   return out
 }
 

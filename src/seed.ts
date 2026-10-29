@@ -135,12 +135,14 @@ const morning = { start: h(7), end: h(12) }
 
 // Demo workers (the file has no staff data) – use the "how many cleaners" tab for a real estimate.
 const FRI_MORNING = { start: h(6), end: h(14) }
+const bbWorker: Worker = {
+  id: 'w1', siteId: 'bb', name: 'רונית', color: '#2f7f6f', absences: [],
+  shifts: [{ start: h(6), end: h(9) }, { start: h(6), end: h(9) }, { start: h(6), end: h(9) }, { start: h(6), end: h(9) }, { start: h(6), end: h(9) }, { start: h(6), end: h(9) }, null],
+  extra: [{ start: h(16, 30), end: h(22) }, { start: h(16, 30), end: h(22) }, { start: h(16, 30), end: h(22) }, { start: h(16, 30), end: h(22) }, { start: h(16, 30), end: h(22) }, null, null],
+}
 const workers: Worker[] = [
-  // בני ברק: ניקיון רק בבוקר (עד 09:00) ובערב (מ-16:30), ובשישי כל הבוקר – לכן עובדי בוקר חלקיים ועובדי ערב חלקיים.
-  w('w1', 'bb', 'רונית', '#2f7f6f', h(6), h(10), FRI_MORNING),
-  w('w2', 'bb', 'מרים', '#5b6bbf', h(6), h(10), FRI_MORNING),
-  w('w4', 'bb', 'יוסי', '#c2703d', h(16), h(22), null),
-  w('w5', 'bb', 'נועה', '#b5476b', h(16), h(22), null),
+  // בני ברק: עובד אחד – כל יום 06:00–09:00 ו-16:30–22:00 (שישי רק בוקר).
+  bbWorker,
   // פתח תקווה
   w('w6', 'pt', 'דנה', '#b5476b', h(6), h(14), FRI_MORNING),
   w('w7', 'pt', 'אבי', '#7a8f2a', h(8), h(16), FRI_MORNING),

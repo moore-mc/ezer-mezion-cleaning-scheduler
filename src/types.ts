@@ -125,6 +125,8 @@ export interface Worker {
   color: string
   /** Shift per day (index 0..6), null = off. */
   shifts: ({ start: number; end: number } | null)[]
+  /** Optional second availability window per day (split shift, e.g. morning + evening). */
+  extra?: ({ start: number; end: number } | null)[]
   /** Dates (YYYY-MM-DD) on which the worker is absent. */
   absences: string[]
 }

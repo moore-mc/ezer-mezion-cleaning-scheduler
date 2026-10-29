@@ -25,6 +25,13 @@ function load(): AppData {
           localStorage.setItem('ezer-m-matrix2', '1')
         }
       } catch { /* ignore */ }
+      // one-off migration: Gutmacher has a single worker (split shift 06-09 + 16:30-22)
+      try {
+        if (!localStorage.getItem('ezer-m-bbworker1')) {
+          d.workers = [...d.workers.filter((w) => w.siteId !== 'bb'), ...seed.workers.filter((w) => w.siteId === 'bb')]
+          localStorage.setItem('ezer-m-bbworker1', '1')
+        }
+      } catch { /* ignore */ }
       // keep user edits but refresh site names (fixes the earlier misspelling)
       return { ...d, sites: d.sites.map((x) => ({ ...x, name: seed.sites.find((y) => y.id === x.id)?.name ?? x.name })) }
     }
