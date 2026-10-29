@@ -282,3 +282,13 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .chipbtn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 99px; padding: 3px 12px; font-size: 13px; }
 .chipbtn.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
 .spacechecks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 4px 12px; margin-top: 8px; }
+
+.legendbox { background: var(--bg); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; display: grid; gap: 6px; }
+.legendbox ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; } .legendbox p { margin: 0; }
+.mx .grp-h th { text-align: center; border-bottom: 0; padding-bottom: 2px; }
+.mx th.g-daily { background: color-mix(in srgb, #2f7f6f 10%, transparent); text-align: center; }
+.mx th.g-weekly { background: color-mix(in srgb, #5b6bbf 12%, transparent); text-align: center; }
+.mx th.g-monthly { background: color-mix(in srgb, #c2703d 12%, transparent); text-align: center; }
+.mx td.g-daily { background: color-mix(in srgb, #2f7f6f 4%, transparent); } .mx td.g-weekly { background: color-mix(in srgb, #5b6bbf 5%, transparent); } .mx td.g-monthly { background: color-mix(in srgb, #c2703d 5%, transparent); }
+.listedit { display: grid; gap: 8px; margin-top: 6px; min-width: 300px; } .listedit textarea { width: 100%; font: inherit; line-height: 1.4; }
+.mx select.inp { min-width: 150px; }

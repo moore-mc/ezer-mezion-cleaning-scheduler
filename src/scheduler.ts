@@ -56,6 +56,8 @@ function cellOf(data: AppData, space: Space) {
     rounds: space.roundsOverride ?? base.roundsPerDay,
     weeklyMin: type?.weeklyMin ?? 0,
     monthlyMin: type?.monthlyMin ?? 0,
+    weeklyTimes: Math.max(1, type?.weeklyTimes ?? 1),
+    monthlyTimes: [1, 2, 4].includes(type?.monthlyTimes ?? 1) ? (type?.monthlyTimes ?? 1) : 1,
   }
 }
 
@@ -77,8 +79,8 @@ export function spaceMinutes(data: AppData, space: Space) {
   const days = Math.max(1, data.settings.workDays.length)
   const times = Math.min(days, freqFor(data, space) ?? days) // days a week the daily cleaning runs
   const daily = c.minutes > 0 && c.rounds > 0 ? c.minutes * c.rounds : 0 // per cleaning day
-  const weekly = c.weeklyMin // once a week
-  const monthly = c.monthlyMin // once every 4 weeks
+  const weekly = c.weeklyMin * Math.min(c.weeklyTimes, days) // per week
+  const monthly = c.monthlyMin * c.monthlyTimes // per 4 weeks
   return {
     daily, weekly, monthly, times,
     /** average per working day, with weekly / monthly lists spread over the days they cover */
@@ -151,11 +153,15 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
       const h = [...space.id].reduce((a, c) => a + c.charCodeAt(0), 0)
       const weekNo = Math.floor(parseISO(weekStart).getTime() / (7 * 86400000))
       if (cell.weeklyMin > 0) {
-        const day = openDays[h % openDays.length]
-        jobs.push({ id: `w|${space.id}`, spaceId: space.id, kind: 'routine', label: 'ניקיון שבועי', duration: cell.weeklyMin,
-          earliest: day * DAY + pick(day, dayStart, endOf(day))[0], deadline: day * DAY + pick(day, dayStart, endOf(day))[1], priority: 8 })
+        const n = Math.min(cell.weeklyTimes, openDays.length)
+        for (let i = 0; i < n; i++) {
+          const day = openDays[(Math.floor(((i + 0.5) * openDays.length) / n) + h) % openDays.length]
+          jobs.push({ id: `w|${space.id}|${i}`, spaceId: space.id, kind: 'routine', label: 'ניקיון שבועי', duration: cell.weeklyMin,
+            earliest: day * DAY + pick(day, dayStart, endOf(day))[0], deadline: day * DAY + pick(day, dayStart, endOf(day))[1], priority: 8 })
+        }
       }
-      if (cell.monthlyMin > 0 && (weekNo + h) % 4 === 0) {
+      // monthly list: 1 / 2 / 4 times in 4 weeks = every 4th / 2nd / every week (spread by a per-space offset)
+      if (cell.monthlyMin > 0 && (weekNo + h) % (4 / cell.monthlyTimes) === 0) {
         const day = openDays[(h + 1) % openDays.length]
         jobs.push({ id: `mo|${space.id}`, spaceId: space.id, kind: 'routine', label: 'ניקיון חודשי', duration: cell.monthlyMin,
           earliest: day * DAY + pick(day, dayStart, endOf(day))[0], deadline: day * DAY + pick(day, dayStart, endOf(day))[1], priority: 6 })

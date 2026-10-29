@@ -9,6 +9,13 @@ const COLORS = ['#2f7f6f', '#c2703d', '#5b6bbf', '#b5476b', '#7a8f2a', '#2e86a8'
 
 // ───────────── matrix ─────────────
 
+const LIST_KEYS = [
+  { k: 'daily', label: 'יומי' },
+  { k: 'weekly', label: 'שבועי' },
+  { k: 'monthly', label: 'חודשי' },
+  { k: 'yearly', label: 'שנתי (לעיון בלבד)' },
+] as const
+
 export function MatrixView({ data, setData }: { data: AppData; setData: SetData }) {
   // edits are kept as a draft until "שמור" is pressed, so the schedule is not recalculated on every keystroke
   const [draft, setDraft] = useState<SpaceType[]>(data.types)
@@ -22,52 +29,90 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
   }
   const upd = (typeId: string, lvl: Level, key: 'minutes' | 'roundsPerDay', v: number) =>
     patchType(typeId, (t) => ({ ...t, matrix: { ...t.matrix, [lvl]: { ...t.matrix[lvl], [key]: v } } }))
+  const setList = (typeId: string, k: (typeof LIST_KEYS)[number]['k'], text: string) =>
+    patchType(typeId, (t) => ({
+      ...t,
+      tasks: { daily: [], weekly: [], monthly: [], yearly: [], ...t.tasks, [k]: text.split('\n').map((x) => x.trim()).filter(Boolean) },
+    }))
   return (
-    <Card title="מטריצת סוגי חללים × רמת פעילות"
+    <Card title="מטריצת ניקיון – סוגי חללים"
       actions={<div className="row wrap">
         {dirty ? <small className="bad">יש שינויים שלא נשמרו</small> : savedAt ? <small className="ok-note">✓ נשמר</small> : null}
         {dirty && <Btn onClick={() => setDraft(data.types)}>בטל שינויים</Btn>}
         <Btn kind="primary" disabled={!dirty} onClick={save}>שמור</Btn>
         <Btn onClick={() => {
-        const name = prompt('שם סוג חלל חדש')
-        if (!name) return
-        const c = (r: number) => ({ minutes: 30, roundsPerDay: r })
-        setSavedAt(null)
-        setDraft((ts) => [...ts, { id: uid('t-'), name, weeklyMin: 0, monthlyMin: 0, matrix: { 1: c(1), 2: c(2), 3: c(5) } }])
-      }}>+ סוג חלל</Btn></div>}>
-      <p className="muted">
-        לכל סוג חלל: משך סבב ניקיון (הרשימה היומית) ומספר הסבבים ביום בכל רמת פעילות (1 = נמוכה, 3 = גבוהה), וכן משך הניקיון השבועי והחודשי.
-        רשימות המשימות והתדירויות לקוחות מקובץ "מטריצת ניקיון"; <b>משכי הזמן הם הערכה</b> (1.5 דק׳ למשימה יומית, 3 לשבועית, 4 לחודשית) וניתנים לעדכון כאן, או לעקיפה בכל חלל.
-      </p>
+          const name = prompt('שם סוג חלל חדש')
+          if (!name) return
+          const c = (r: number) => ({ minutes: 30, roundsPerDay: r })
+          setSavedAt(null)
+          setDraft((ts) => [...ts, { id: uid('t-'), name, weeklyMin: 0, monthlyMin: 0, weeklyTimes: 1, monthlyTimes: 1, matrix: { 1: c(1), 2: c(2), 3: c(5) }, tasks: { daily: [], weekly: [], monthly: [], yearly: [] } }])
+        }}>+ סוג חלל</Btn></div>}>
+      <div className="legendbox">
+        <p><b>איך קוראים את המטריצה:</b> לכל סוג חלל יש רשימות משימות בשלוש תדירויות, וכאן קובעים <b>כמה זמן</b> לוקח כל ניקיון ו<b>כמה פעמים</b> הוא מתבצע.</p>
+        <ul>
+          <li><b>ניקיון יומי</b> – הרשימה היומית של החלל. מתבצע בכל יום עבודה; כמה <b>סבבים ביום</b> תלוי ברמת הפעילות של החלל (1 = נמוכה, 3 = גבוהה).</li>
+          <li><b>ניקיון שבועי</b> – משימות עומק שלא עושים כל יום (למשל חלונות, ארונות). קובעים כמה דקות וכמה <b>פעמים בשבוע</b> (ברירת מחדל: פעם אחת).</li>
+          <li><b>ניקיון חודשי</b> – משימות עומק נוספות. קובעים כמה דקות וכמה פעמים <b>ב-4 שבועות</b> (פעם אחת, פעמיים או כל שבוע).</li>
+          <li><b>שנתי</b> – רשימה לעיון בלבד; לא נכנסת ללו״ז.</li>
+        </ul>
+        <p className="muted">משכי הזמן הם הערכה ונקבעים כאן; אפשר לעקוף אותם בכל חלל. את רשימות המשימות עצמן אפשר להוסיף ולערוך בלחיצה על "רשימות משימות" מתחת לשם הסוג.</p>
+      </div>
       <div className="table-wrap">
-        <table className="matrix">
+        <table className="matrix mx">
           <thead>
-            <tr><th>סוג חלל</th>{LEVELS.map((l) => <th key={l}><LevelPill level={l} /></th>)}<th>שבועי</th><th>חודשי</th></tr>
+            <tr className="grp-h">
+              <th rowSpan={2}>סוג חלל</th>
+              <th colSpan={3} className="g-daily">ניקיון יומי</th>
+              <th className="g-weekly">ניקיון שבועי</th>
+              <th className="g-monthly">ניקיון חודשי</th>
+            </tr>
+            <tr>
+              {LEVELS.map((l) => <th key={l} className="g-daily"><LevelPill level={l} /></th>)}
+              <th className="g-weekly">דקות · פעמים בשבוע</th>
+              <th className="g-monthly">דקות · פעמים ב-4 שבועות</th>
+            </tr>
           </thead>
           <tbody>
             {draft.map((t) => (
               <tr key={t.id}>
                 <td>
                   <input className="inp name" value={t.name} onChange={(e) => patchType(t.id, (x) => ({ ...x, name: e.target.value }))} />
-                  {t.tasks && (
-                    <details className="tasks">
-                      <summary>רשימות ניקיון ({t.tasks.daily.length} יומי · {t.tasks.weekly.length} שבועי · {t.tasks.monthly.length} חודשי · {t.tasks.yearly.length} שנתי)</summary>
-                      {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((k) => t.tasks![k].length > 0 && (
-                        <div key={k}><b>{{ daily: 'יומי', weekly: 'שבועי', monthly: 'חודשי', yearly: 'שנתי' }[k]}:</b> {t.tasks![k].join(' · ')}</div>
+                  <details className="tasks">
+                    <summary>רשימות משימות ({t.tasks?.daily.length ?? 0} יומי · {t.tasks?.weekly.length ?? 0} שבועי · {t.tasks?.monthly.length ?? 0} חודשי)</summary>
+                    <div className="listedit">
+                      {LIST_KEYS.map(({ k, label }) => (
+                        <label key={k}>{label}
+                          <textarea className="inp" rows={Math.max(3, (t.tasks?.[k].length ?? 0) + 1)} value={(t.tasks?.[k] ?? []).join('\n')}
+                            placeholder="משימה בכל שורה" onChange={(e) => setList(t.id, k, e.target.value)} />
+                        </label>
                       ))}
-                    </details>
-                  )}
+                    </div>
+                  </details>
                 </td>
                 {LEVELS.map((l) => (
-                  <td key={l}>
+                  <td key={l} className="g-daily">
                     <div className="cellgrid">
                       <NumInput value={t.matrix[l].minutes} min={0} onChange={(v) => upd(t.id, l, 'minutes', v)} suffix="דק׳ לסבב" />
                       <NumInput value={t.matrix[l].roundsPerDay} max={12} onChange={(v) => upd(t.id, l, 'roundsPerDay', v)} suffix="סבבים/יום" />
                     </div>
                   </td>
                 ))}
-                <td><NumInput value={t.weeklyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, weeklyMin: v }))} suffix="דק׳" /></td>
-                <td><NumInput value={t.monthlyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, monthlyMin: v }))} suffix="דק׳" /></td>
+                <td className="g-weekly">
+                  <div className="cellgrid">
+                    <NumInput value={t.weeklyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, weeklyMin: v }))} suffix="דק׳" />
+                    <NumInput value={t.weeklyTimes ?? 1} min={1} max={7} onChange={(v) => patchType(t.id, (x) => ({ ...x, weeklyTimes: Math.max(1, v) }))} suffix="פעמים בשבוע" />
+                  </div>
+                </td>
+                <td className="g-monthly">
+                  <div className="cellgrid">
+                    <NumInput value={t.monthlyMin} onChange={(v) => patchType(t.id, (x) => ({ ...x, monthlyMin: v }))} suffix="דק׳" />
+                    <select className="inp" value={t.monthlyTimes ?? 1} onChange={(e) => patchType(t.id, (x) => ({ ...x, monthlyTimes: Number(e.target.value) }))}>
+                      <option value={1}>פעם ב-4 שבועות</option>
+                      <option value={2}>פעמיים ב-4 שבועות</option>
+                      <option value={4}>כל שבוע</option>
+                    </select>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

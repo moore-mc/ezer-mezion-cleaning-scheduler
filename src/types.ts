@@ -31,6 +31,10 @@ export interface SpaceType {
   /** Minutes for the once-a-week list / once-a-month list (0 = none). */
   weeklyMin: number
   monthlyMin: number
+  /** How many times a week the weekly list is done (default 1). */
+  weeklyTimes?: number
+  /** How many times in 4 weeks the monthly list is done: 1, 2 or 4 (default 1). */
+  monthlyTimes?: number
   tasks?: TaskLists
 }
 
