@@ -269,3 +269,5 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .lrow .lm { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 
 .col header .sumh { display: block; margin-top: 2px; font-size: 15px; }
+
+.btn:disabled { opacity: .45; cursor: not-allowed; }

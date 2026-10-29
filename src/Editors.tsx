@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import type { AppData, Level, Space, SpaceType, Worker } from './types'
 import { DAY_NAMES } from './scheduler'
 import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
@@ -10,18 +10,31 @@ const COLORS = ['#2f7f6f', '#c2703d', '#5b6bbf', '#b5476b', '#7a8f2a', '#2e86a8'
 // ───────────── matrix ─────────────
 
 export function MatrixView({ data, setData }: { data: AppData; setData: SetData }) {
-  const patchType = (id: string, f: (t: SpaceType) => SpaceType) =>
-    setData((d) => ({ ...d, types: d.types.map((t) => t.id === id ? f(t) : t) }))
+  // edits are kept as a draft until "שמור" is pressed, so the schedule is not recalculated on every keystroke
+  const [draft, setDraft] = useState<SpaceType[]>(data.types)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  useEffect(() => { setDraft(data.types) }, [data.types])
+  const dirty = JSON.stringify(draft) !== JSON.stringify(data.types)
+  const save = () => { setData((d) => ({ ...d, types: draft })); setSavedAt(Date.now()) }
+  const patchType = (id: string, f: (t: SpaceType) => SpaceType) => {
+    setSavedAt(null)
+    setDraft((ts) => ts.map((t) => t.id === id ? f(t) : t))
+  }
   const upd = (typeId: string, lvl: Level, key: 'minutes' | 'roundsPerDay', v: number) =>
     patchType(typeId, (t) => ({ ...t, matrix: { ...t.matrix, [lvl]: { ...t.matrix[lvl], [key]: v } } }))
   return (
     <Card title="מטריצת סוגי חללים × רמת פעילות"
-      actions={<Btn onClick={() => {
+      actions={<div className="row wrap">
+        {dirty ? <small className="bad">יש שינויים שלא נשמרו</small> : savedAt ? <small className="ok-note">✓ נשמר</small> : null}
+        {dirty && <Btn onClick={() => setDraft(data.types)}>בטל שינויים</Btn>}
+        <Btn kind="primary" disabled={!dirty} onClick={save}>שמור</Btn>
+        <Btn onClick={() => {
         const name = prompt('שם סוג חלל חדש')
         if (!name) return
         const c = (r: number) => ({ minutes: 30, roundsPerDay: r })
-        setData((d) => ({ ...d, types: [...d.types, { id: uid('t-'), name, weeklyMin: 0, monthlyMin: 0, matrix: { 1: c(1), 2: c(2), 3: c(5) } }] }))
-      }}>+ סוג חלל</Btn>}>
+        setSavedAt(null)
+        setDraft((ts) => [...ts, { id: uid('t-'), name, weeklyMin: 0, monthlyMin: 0, matrix: { 1: c(1), 2: c(2), 3: c(5) } }])
+      }}>+ סוג חלל</Btn></div>}>
       <p className="muted">
         לכל סוג חלל: משך סבב ניקיון (הרשימה היומית) ומספר הסבבים ביום בכל רמת פעילות (1 = נמוכה, 3 = גבוהה), וכן משך הניקיון השבועי והחודשי.
         רשימות המשימות והתדירויות לקוחות מקובץ "מטריצת ניקיון"; <b>משכי הזמן הם הערכה</b> (1.5 דק׳ למשימה יומית, 3 לשבועית, 4 לחודשית) וניתנים לעדכון כאן, או לעקיפה בכל חלל.
@@ -32,7 +45,7 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
             <tr><th>סוג חלל</th>{LEVELS.map((l) => <th key={l}><LevelPill level={l} /></th>)}<th>שבועי</th><th>חודשי</th></tr>
           </thead>
           <tbody>
-            {data.types.map((t) => (
+            {draft.map((t) => (
               <tr key={t.id}>
                 <td>
                   <input className="inp name" value={t.name} onChange={(e) => patchType(t.id, (x) => ({ ...x, name: e.target.value }))} />
