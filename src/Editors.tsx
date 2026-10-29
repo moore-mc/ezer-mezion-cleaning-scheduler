@@ -369,7 +369,7 @@ function SpaceTable({ data, siteId, open, onLevel, onOpen, renderDetail }: {
             <h4>{site.name} <small className="muted">· {rows.length} חללים · רמה 1: {a} · רמה 2: {b} · רמה 3: {c}</small></h4>
             <div className="table-wrap">
               <table className="matrix compact">
-                <thead><tr><th>חלל</th><th>סוג חלל</th><th>רמת פעילות</th><th>סבבים ביום</th><th>דק׳ לסבב</th><th>ש׳ ליום (ממוצע)</th><th>אילוצים</th><th /></tr></thead>
+                <thead><tr><th>חלל</th><th>סוג חלל</th><th>רמת פעילות</th><th>ניקיון יומי</th><th>שבועי</th><th>חודשי</th><th>ש׳ ליום (ממוצע)</th><th>אילוצים</th><th /></tr></thead>
                 <tbody>
                   {rows.map((sp) => {
                     const type = data.types.find((t) => t.id === sp.typeId)
@@ -385,13 +385,23 @@ function SpaceTable({ data, siteId, open, onLevel, onOpen, renderDetail }: {
                             {LEVELS.map((l) => <option key={l} value={l}>רמה {l}</option>)}
                           </select>
                         </td>
-                        <td>{sp.roundsOverride ?? cell?.roundsPerDay}</td>
-                        <td>{sp.minutesOverride ?? cell?.minutes}</td>
+                        {(() => {
+                          const m = spaceMinutes(data, sp)
+                          const rounds = sp.roundsOverride ?? cell?.roundsPerDay ?? 0
+                          const mins = sp.minutesOverride ?? cell?.minutes ?? 0
+                          return (
+                            <>
+                              <td>{m.daily > 0 ? <>{mins} דק׳{rounds > 1 && ` × ${rounds}`}{m.times < data.settings.workDays.length && <small className="muted"> · {m.times} ימים בשבוע</small>}</> : <span className="muted">—</span>}</td>
+                              <td>{m.weekly > 0 ? `${m.weekly} דק׳` : <span className="muted">—</span>}</td>
+                              <td>{m.monthly > 0 ? `${m.monthly} דק׳` : <span className="muted">—</span>}</td>
+                            </>
+                          )
+                        })()}
                         <td><b>{(spaceMinutes(data, sp).avgPerDay / 60).toFixed(2)}</b></td>
                         <td className="muted">{sp.blocked.length + sp.activities.length + sp.events.length || '—'}</td>
                         <td><Btn onClick={() => onOpen(sp.id)}>{open === sp.id ? 'סגור' : 'פרטים'}</Btn></td>
                       </tr>
-                      {open === sp.id && <tr className="detail"><td colSpan={8}>{renderDetail(sp)}</td></tr>}
+                      {open === sp.id && <tr className="detail"><td colSpan={9}>{renderDetail(sp)}</td></tr>}
                       </Fragment>
                     )
                   })}
