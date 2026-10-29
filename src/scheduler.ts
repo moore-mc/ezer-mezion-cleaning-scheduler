@@ -1,5 +1,5 @@
 import type {
-  AppData, Job, Override, Placement, ScheduleResult, Space, Unscheduled, Worker,
+  AppData, SiteRule, Job, Override, Placement, ScheduleResult, Space, Unscheduled, Worker,
 } from './types'
 
 export const DAY = 1440
@@ -213,9 +213,13 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
 
 // ───────────── availability ─────────────
 
-function blockedFor(space: Space | undefined, weekStart: string): Interval[] {
+function blockedFor(space: Space | undefined, weekStart: string, rules: SiteRule[] = []): Interval[] {
   if (!space) return []
   const out: Interval[] = []
+  for (const r of rules) {
+    const hit = r.mode === 'all' || (r.mode === 'only' ? r.spaceIds.includes(space.id) : !r.spaceIds.includes(space.id))
+    if (hit) for (const d of r.days) out.push([d * DAY + r.start, d * DAY + r.end])
+  }
   for (const b of space.blocked) out.push([b.day * DAY + b.start, b.day * DAY + b.end])
   for (const a of space.activities) out.push([a.day * DAY + a.start, a.day * DAY + a.end])
   for (const e of space.events) {
@@ -317,6 +321,7 @@ export function hoursReport(result: ScheduleResult, data: AppData) {
 export function schedule(data: AppData, weekStart: string, opts: { pack?: boolean } = {}): ScheduleResult {
   const allJobs = generateJobs(data, weekStart)
   const spaceById = new Map(data.spaces.map((s) => [s.id, s]))
+  const rulesOf = (spaceId: string): SiteRule[] => data.sites.find((x) => x.id === spaceById.get(spaceId)?.siteId)?.rules ?? []
   const ovr = (id: string): Override | undefined => data.overrides[overrideKey(weekStart, id)]
 
   const skipped: Job[] = []
@@ -354,7 +359,7 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
     const iv: Interval = [pin.start, pin.start + job.duration]
     const warnings: string[] = []
     if (!st.shifts.some((s) => iv[0] >= s[0] && iv[1] <= s[1])) warnings.push('מחוץ למשמרת העובד')
-    if (blockedFor(spaceById.get(job.spaceId), weekStart).some((b) => overlaps(iv, b))) warnings.push('החלל חסום לניקיון בשעה זו')
+    if (blockedFor(spaceById.get(job.spaceId), weekStart, rulesOf(job.spaceId)).some((b) => overlaps(iv, b))) warnings.push('החלל חסום לניקיון בשעה זו')
     if (st.busy.some((b) => overlaps(iv, b, 0))) warnings.push('חפיפה עם משימה אחרת של העובד')
     if (iv[0] < job.earliest || iv[1] > job.deadline) warnings.push('מחוץ לחלון הזמן הנדרש')
     place(st, job, pin.start)
@@ -368,7 +373,7 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
   auto.sort((a, b) => slack(a) - slack(b) || b.priority - a.priority || a.earliest - b.earliest)
 
   for (const job of auto) {
-    const blocked = blockedFor(spaceById.get(job.spaceId), weekStart)
+    const blocked = blockedFor(spaceById.get(job.spaceId), weekStart, rulesOf(job.spaceId))
     let best: { st: WorkerState; t: number; cost: number } | null = null
     for (const st of states) {
       const t = findStart(st, job, blocked.concat(spaceBusy.get(job.spaceId) ?? []), buffer)

@@ -1,4 +1,4 @@
-import type { AppData, Level, Space, SpaceType, Worker } from './types'
+import type { AppData, Level, Site, Space, SpaceType, Worker } from './types'
 import { addDays, toISO, weekStartOf } from './scheduler'
 import { BASE_TASKS, FILE_SITES, FILE_TYPES } from './fileData'
 
@@ -39,7 +39,7 @@ for (const t of types) {
   t.matrix = { 1: { ...cell }, 2: { ...cell }, 3: { ...cell } }
 }
 
-const sites = [
+const sites: Site[] = [
   { id: 'bb', name: 'בני ברק – גוטמאכר 8 (מעון)', hours: { start: h(7, 30), end: h(17) } },
   { id: 'pt', name: 'פתח תקווה – שושנים 12', hours: { start: h(8), end: h(18) } },
   { id: 'rg', name: 'רמת גן – שד׳ ירושלים', hours: { start: h(8), end: h(17) } },
@@ -64,11 +64,12 @@ const activity = (ids: string[], days: number[], start: number, end: number, lab
 const thisWeekDay = (d: number) => addDays(weekStartOf(toISO(new Date())), d)
 
 // בני ברק – גוטמאכר: אין קבלת קהל, לכן מנקים רק בבוקר עד 09:00 ומ-16:30 (שישי פתוח כל היום).
-// המעון (גנים, חצר, ג׳ימבורי) – רק עד 07:30 ומ-16:30. בלי פעילויות ואירועים.
-const BB = spaces.filter((x) => x.siteId === 'bb').map((x) => x.id)
+// המעון (גנים, חצר, ג׳ימבורי) – רק עד 07:30 ומ-16:30. אילוצי שעות ברמת הסניף (לשונית "חללים"), בלי פעילויות ואירועים.
 const BB_DAYCARE = ['bb-H1', 'bb-H2', 'bb-K1', 'bb-K2', 'bb-K3', 'bb-K4', 'bb-L1']
-block(BB.filter((id) => !BB_DAYCARE.includes(id)), SUN_THU, h(9), h(16, 30), 'אין ניקיון בין 09:00 ל-16:30 (אין קבלת קהל – ניקיון בבוקר ובערב)')
-block(BB_DAYCARE, SUN_THU, h(7, 30), h(16, 30), 'שעות פעילות המעון')
+sites[0].rules = [
+  { id: 'bb-r1', label: 'אין קבלת קהל – ניקיון רק עד 09:00 ומ-16:30', days: SUN_THU, start: h(9), end: h(16, 30), mode: 'except', spaceIds: BB_DAYCARE },
+  { id: 'bb-r2', label: 'שעות פעילות המעון', days: SUN_THU, start: h(7, 30), end: h(16, 30), mode: 'only', spaceIds: BB_DAYCARE },
+]
 // פתח תקווה – שושנים 12
 // הנחה: קבלת קהל והשאלת ציוד פתוחים א׳–ה׳ 09:00–13:00 / 09:00–14:00; המועדונית והחצר פעילות אחה״צ 15:00–18:00.
 block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')

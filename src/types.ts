@@ -53,11 +53,24 @@ export interface SpecialEvent {
   cleanAfterWithinMin: number
 }
 
+export interface SiteRule {
+  id: string
+  label: string
+  days: number[]
+  start: number
+  end: number
+  /** all = every space; except = every space but `spaceIds`; only = just `spaceIds` */
+  mode: 'all' | 'except' | 'only'
+  spaceIds: string[]
+}
+
 export interface Site {
   id: string
   name: string
   /** Opening hours: repeated cleaning rounds (activity level 2-3) are spread inside them. Default: whole working day. */
   hours?: { start: number; end: number }
+  /** Site-wide hour constraints: windows in which cleaning is not allowed, for all / some spaces of the site. */
+  rules?: SiteRule[]
 }
 
 export interface Space {

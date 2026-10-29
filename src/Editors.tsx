@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import type { AppData, Level, Space, SpaceType, Worker } from './types'
+import type { AppData, Level, SiteRule, Space, SpaceType, Worker } from './types'
 import { DAY_NAMES, spaceMinutes } from './scheduler'
 import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
 
@@ -114,6 +114,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
       )}
       <SiteTotals data={data} siteId={siteId} />
       <SiteHoursCard data={data} setData={setData} siteId={siteId} />
+      <SiteRulesCard data={data} setData={setData} siteId={siteId} />
       <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
         onLevel={(id, level) => patch(id, { level })}
         onOpen={(id) => {
@@ -434,6 +435,73 @@ function SiteTotals({ data, siteId }: { data: AppData; siteId: string }) {
         הממוצע היומי = ניקיון יומי ({h(sum('daily'))} ש׳) + הניקיון השבועי מחולק ל-{days} ימי עבודה ({h(sum('weekly') / days)} ש׳) + הניקיון החודשי מחולק ל-4 שבועות ו-{days} ימים ({h(sum('monthly') / (4 * days))} ש׳).
         החישוב לפי המטריצה, כולל עקיפות בכל חלל; ניקיון שנתי לא נכלל.
       </p>
+    </Card>
+  )
+}
+
+function SiteRulesCard({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
+  const site = data.sites.find((x) => x.id === siteId)
+  if (!site) return null
+  const rules = site.rules ?? []
+  const spaces = data.spaces.filter((x) => x.siteId === siteId)
+  const setRules = (next: SiteRule[]) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, rules: next } : x) }))
+  const patch = (id: string, p: Partial<SiteRule>) => setRules(rules.map((r) => r.id === id ? { ...r, ...p } : r))
+  const toggle = (r: SiteRule, sid: string) => patch(r.id, { spaceIds: r.spaceIds.includes(sid) ? r.spaceIds.filter((x) => x !== sid) : [...r.spaceIds, sid] })
+  const toggleType = (r: SiteRule, typeId: string) => {
+    const ids = spaces.filter((x) => x.typeId === typeId).map((x) => x.id)
+    const all = ids.every((i) => r.spaceIds.includes(i))
+    patch(r.id, { spaceIds: all ? r.spaceIds.filter((i) => !ids.includes(i)) : [...new Set([...r.spaceIds, ...ids])] })
+  }
+  const typesHere = [...new Set(spaces.map((x) => x.typeId))].map((id) => data.types.find((t) => t.id === id)).filter(Boolean) as SpaceType[]
+  return (
+    <Card title="אילוצי שעות לכל הסניף"
+      actions={<Btn onClick={() => setRules([...rules, { id: uid('r-'), label: 'אילוץ חדש', days: [0, 1, 2, 3, 4], start: 9 * 60, end: 16 * 60 + 30, mode: 'all', spaceIds: [] }])}>+ הוסף אילוץ</Btn>}>
+      <p className="muted">שעות שבהן <b>אי אפשר לנקות</b>, בבת אחת לכל החללים בסניף, או לכולם חוץ מחללים מסוימים, או רק לחללים שבחרת. אילוץ של חלל בודד נשאר בכרטיס החלל.</p>
+      {rules.length === 0 && <p className="muted">אין אילוצים ברמת הסניף.</p>}
+      {rules.map((r) => (
+        <div className="siterule" key={r.id}>
+          <div className="row wrap">
+            <input className="inp" style={{ minWidth: 280 }} value={r.label} aria-label="שם האילוץ" onChange={(e) => patch(r.id, { label: e.target.value })} />
+            <Btn kind="danger" onClick={() => confirm(`למחוק את האילוץ "${r.label}"?`) && setRules(rules.filter((x) => x.id !== r.id))}>מחק</Btn>
+          </div>
+          <div className="row wrap">
+            <b>ימים:</b>
+            {DAY_NAMES.map((n, d) => (
+              <label className="inline" key={d}>
+                <input type="checkbox" checked={r.days.includes(d)} onChange={(e) => patch(r.id, { days: e.target.checked ? [...r.days, d].sort() : r.days.filter((x) => x !== d) })} /> {n}
+              </label>
+            ))}
+          </div>
+          <div className="row wrap">
+            <label>לא מנקים מהשעה<TimeInput value={r.start} onChange={(v) => patch(r.id, { start: v })} /></label>
+            <label>עד<TimeInput value={r.end} onChange={(v) => patch(r.id, { end: v })} /></label>
+            <label>חל על
+              <select className="inp" value={r.mode} onChange={(e) => patch(r.id, { mode: e.target.value as SiteRule['mode'] })}>
+                <option value="all">כל החללים בסניף</option>
+                <option value="except">כל החללים חוץ מ…</option>
+                <option value="only">רק החללים שבחרתי</option>
+              </select>
+            </label>
+          </div>
+          {r.mode !== 'all' && (
+            <details className="rulespaces" open={r.spaceIds.length === 0}>
+              <summary>{r.mode === 'except' ? 'חללים שהאילוץ לא חל עליהם' : 'חללים שהאילוץ חל עליהם'} ({r.spaceIds.length})</summary>
+              <div className="row wrap">
+                {typesHere.map((t) => {
+                  const ids = spaces.filter((x) => x.typeId === t.id).map((x) => x.id)
+                  const on = ids.every((i) => r.spaceIds.includes(i))
+                  return <button key={t.id} className={`chipbtn ${on ? 'on' : ''}`} onClick={() => toggleType(r, t.id)}>{t.name} ({ids.length})</button>
+                })}
+              </div>
+              <div className="spacechecks">
+                {spaces.map((x) => (
+                  <label className="inline" key={x.id}><input type="checkbox" checked={r.spaceIds.includes(x.id)} onChange={() => toggle(r, x.id)} /> {x.name}</label>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      ))}
     </Card>
   )
 }

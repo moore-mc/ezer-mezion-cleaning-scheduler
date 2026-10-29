@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { AppData } from './types'
 import { seed } from './seed'
 
-const KEY = 'ezer-cleaning-scheduler-v15'
+const KEY = 'ezer-cleaning-scheduler-v16'
 
 function load(): AppData {
   try {
