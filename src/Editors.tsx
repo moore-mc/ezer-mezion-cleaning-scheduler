@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import type { AppData, Level, Space, SpaceType, Worker } from './types'
-import { DAY_NAMES } from './scheduler'
+import { DAY_NAMES, spaceMinutes } from './scheduler'
 import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
 
 type SetData = (f: (d: AppData) => AppData) => void
@@ -112,6 +112,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
           <p className="muted">מגבלות, פעילויות ואירועים מוסיפים אחרי היצירה, בכרטיס החלל.</p>
         </Modal>
       )}
+      <SiteTotals data={data} siteId={siteId} />
       <SiteHoursCard data={data} setData={setData} siteId={siteId} />
       <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
         onLevel={(id, level) => patch(id, { level })}
@@ -365,7 +366,7 @@ function SpaceTable({ data, siteId, open, onLevel, onOpen, renderDetail }: {
             <h4>{site.name} <small className="muted">· {rows.length} חללים · רמה 1: {a} · רמה 2: {b} · רמה 3: {c}</small></h4>
             <div className="table-wrap">
               <table className="matrix compact">
-                <thead><tr><th>חלל</th><th>סוג חלל</th><th>רמת פעילות</th><th>סבבים ביום</th><th>דק׳ לסבב</th><th>אילוצים</th><th /></tr></thead>
+                <thead><tr><th>חלל</th><th>סוג חלל</th><th>רמת פעילות</th><th>סבבים ביום</th><th>דק׳ לסבב</th><th>ש׳ ליום (ממוצע)</th><th>אילוצים</th><th /></tr></thead>
                 <tbody>
                   {rows.map((sp) => {
                     const type = data.types.find((t) => t.id === sp.typeId)
@@ -383,10 +384,11 @@ function SpaceTable({ data, siteId, open, onLevel, onOpen, renderDetail }: {
                         </td>
                         <td>{sp.roundsOverride ?? cell?.roundsPerDay}</td>
                         <td>{sp.minutesOverride ?? cell?.minutes}</td>
+                        <td><b>{(spaceMinutes(data, sp).avgPerDay / 60).toFixed(2)}</b></td>
                         <td className="muted">{sp.blocked.length + sp.activities.length + sp.events.length || '—'}</td>
                         <td><Btn onClick={() => onOpen(sp.id)}>{open === sp.id ? 'סגור' : 'פרטים'}</Btn></td>
                       </tr>
-                      {open === sp.id && <tr className="detail"><td colSpan={7}>{renderDetail(sp)}</td></tr>}
+                      {open === sp.id && <tr className="detail"><td colSpan={8}>{renderDetail(sp)}</td></tr>}
                       </Fragment>
                     )
                   })}
@@ -412,6 +414,26 @@ function SiteHoursCard({ data, setData, siteId }: { data: AppData; setData: SetD
         <label>עד<TimeInput value={hrs.end} onChange={(v) => setHours({ ...hrs, end: v })} /></label>
         <small className="muted">סבבי ניקיון חוזרים (רמה 2–3) מתפזרים בתוך השעות האלה</small>
       </div>
+    </Card>
+  )
+}
+
+function SiteTotals({ data, siteId }: { data: AppData; siteId: string }) {
+  const rows = data.spaces.filter((x) => x.siteId === siteId).map((sp) => spaceMinutes(data, sp))
+  const sum = (k: 'daily' | 'weekly' | 'monthly' | 'avgPerDay' | 'perWeek' | 'per4Weeks') => rows.reduce((a, r) => a + r[k], 0)
+  const days = Math.max(1, data.settings.workDays.length)
+  const h = (m: number) => (m / 60).toFixed(1)
+  return (
+    <Card title="סכום שעות ניקיון בסניף">
+      <div className="kpis wide">
+        <div className="kpi"><b>{h(sum('avgPerDay'))}</b><span>שעות ביום (ממוצע, כולל שבועי וחודשי)</span></div>
+        <div className="kpi"><b>{h(sum('perWeek'))}</b><span>שעות בשבוע</span></div>
+        <div className="kpi"><b>{h(sum('per4Weeks'))}</b><span>שעות ב-4 שבועות</span></div>
+      </div>
+      <p className="muted">
+        הממוצע היומי = ניקיון יומי ({h(sum('daily'))} ש׳) + הניקיון השבועי מחולק ל-{days} ימי עבודה ({h(sum('weekly') / days)} ש׳) + הניקיון החודשי מחולק ל-4 שבועות ו-{days} ימים ({h(sum('monthly') / (4 * days))} ש׳).
+        החישוב לפי המטריצה, כולל עקיפות בכל חלל; ניקיון שנתי לא נכלל.
+      </p>
     </Card>
   )
 }

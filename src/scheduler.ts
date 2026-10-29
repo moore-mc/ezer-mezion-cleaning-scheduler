@@ -59,6 +59,22 @@ function cellOf(data: AppData, space: Space) {
   }
 }
 
+/** Cleaning minutes of one space: per working day (daily rounds), per week (weekly list) and per 4 weeks (monthly list). */
+export function spaceMinutes(data: AppData, space: Space) {
+  const c = cellOf(data, space)
+  const days = Math.max(1, data.settings.workDays.length)
+  const daily = c.minutes > 0 && c.rounds > 0 ? c.minutes * c.rounds : 0 // per working day
+  const weekly = c.weeklyMin // once a week
+  const monthly = c.monthlyMin // once every 4 weeks
+  return {
+    daily, weekly, monthly,
+    /** average per working day, with weekly / monthly lists spread over the days they cover */
+    avgPerDay: daily + weekly / days + monthly / (4 * days),
+    perWeek: daily * days + weekly + monthly / 4,
+    per4Weeks: daily * days * 4 + weekly * 4 + monthly,
+  }
+}
+
 function closedDays(data: AppData, weekStart: string): Set<number> {
   const s = new Set<number>()
   for (const d of data.settings.closedDates) {
