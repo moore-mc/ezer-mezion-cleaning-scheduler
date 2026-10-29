@@ -158,7 +158,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .seg { display: inline-flex; background: var(--bg); border-radius: 9px; padding: 3px; }
 .seg button { border: 0; background: transparent; color: var(--muted); padding: 4px 12px; border-radius: 7px; font-weight: 500; }
 .seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; align-items: start; }
+.cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 1fr); gap: 12px; align-items: start; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x proximity; }
+.cols > .col { scroll-snap-align: start; }
 .col { display: flex; flex-direction: column; gap: 6px; background: var(--bg); border-radius: 12px; padding: 8px; }
 .col header { border-bottom: 3px solid; padding: 4px 4px 8px; display: flex; flex-direction: column; margin-bottom: 2px; }
 .col header i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; }
