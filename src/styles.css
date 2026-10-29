@@ -250,3 +250,23 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .wc-types em i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-inline-end: 4px; vertical-align: -1px; border-inline-start-width: 0; }
 .ws tfoot td, .ws tfoot th { background: var(--bg); border-bottom: 0; }
 .detail-toggle { display: flex; justify-content: center; margin: 12px 0; }
+
+/* plain task list (day view) */
+.cols { gap: 28px; }
+.col { background: transparent; padding: 0; border-inline-end: 1px solid var(--line); padding-inline-end: 24px; }
+.col:last-child { border-inline-end: 0; }
+.tl-list { list-style: none; margin: 0; padding: 0; }
+.tl-list li { border-bottom: 1px solid var(--line); }
+.lrow { width: 100%; display: flex; align-items: baseline; gap: 8px; padding: 8px 4px; border: 0; background: transparent; color: var(--ink); text-align: start; border-radius: 6px; }
+.lrow:hover { background: var(--brand-soft); }
+.lrow .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--bdc); border: 0; align-self: center; }
+.lrow b { font-weight: 600; white-space: nowrap; }
+.lrow .lm { color: var(--muted); font-size: 12.5px; margin-inline-start: auto; text-align: end; }
+.lrow.sel { outline: 2px solid var(--brand); } .lrow.warn { outline: 2px dashed var(--warn); }
+
+.cols { grid-auto-columns: minmax(310px, 1fr); }
+.lrow .lm { white-space: nowrap; }
+
+.col { min-width: 0; }
+.lrow { min-width: 0; overflow: hidden; }
+.lrow .lm { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }

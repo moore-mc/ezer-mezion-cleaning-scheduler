@@ -63,15 +63,21 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                 <small>{absent ? 'נעדר' : `${list.length} משימות`}{site && site.floors.length > 1 && list.length > 0 && ` · ${dayMoves(w.id)} מעברי קומה`}</small>
               </header>
               {list.length === 0 && <p className="muted pad">{absent ? '' : 'אין משימות'}</p>}
-              {list.map((p) => {
-                const j = jobById.get(p.jobId)!
-                return (
-                  <button key={p.jobId} style={hue(j.spaceId)} className={`item tcol ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
-                    <span className="n"><b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b>
-                      <small>{floorName(j.spaceId) && <em className="kind">{floorName(j.spaceId)}</em>}{j.kind !== 'routine' && <em className="kind">{KIND_LABEL[j.kind]}</em>}{j.label}</small></span>
-                  </button>
-                )
-              })}
+              <ul className="tl-list">
+                {list.map((p) => {
+                  const j = jobById.get(p.jobId)!
+                  const meta = [floorName(j.spaceId), j.kind !== 'routine' ? KIND_LABEL[j.kind] : '', j.label].filter(Boolean).join(' · ')
+                  return (
+                    <li key={p.jobId}>
+                      <button style={hue(j.spaceId)} className={`lrow ${selected === p.jobId ? 'sel' : ''} ${p.warnings.length ? 'warn' : ''}`} onClick={() => setSelected(p.jobId)}>
+                        <i className="dot tcol" />
+                        <b>{p.pinned && '📌 '}{spaceName(j.spaceId)}</b>
+                        <span className="lm">{meta}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           )
         })}
