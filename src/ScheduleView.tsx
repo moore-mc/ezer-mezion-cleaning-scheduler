@@ -67,6 +67,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
         <table className="ht" style={{ minWidth: data.workers.length * 250 + 64 }}>
           <thead>
             <tr>
+              <th className="hr-h">שעה</th>
               {data.workers.map((w) => {
                 const shift = w.shifts[day]
                 const absent = w.absences.includes(addDays(weekStart, day))
@@ -80,12 +81,12 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                   </th>
                 )
               })}
-              <th className="hr-h">שעה</th>
             </tr>
           </thead>
           <tbody>
             {hoursList.map((hr) => (
               <tr key={hr}>
+                <th className="hr" scope="row">{String(hr).padStart(2, '0')}:00</th>
                 {data.workers.map((w) => (
                   <td key={w.id}>
                     {mine(w.id).filter((p) => Math.floor((p.start - day * DAY) / 60) === hr).map((p) => {
@@ -99,7 +100,6 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                     })}
                   </td>
                 ))}
-                <th className="hr" scope="row">{String(hr).padStart(2, '0')}:00</th>
               </tr>
             ))}
           </tbody>
