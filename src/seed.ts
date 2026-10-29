@@ -50,6 +50,35 @@ for (const t of types) {
   t.weeklyMin = Math.max(10, round5(t.weeklyMin + items.length * MIN_PER_DAILY_ITEM))
 }
 
+// Durations agreed for the master matrix (minutes): daily round, weekly clean, monthly clean; weekly times per week.
+// Types not listed keep the estimate computed from the task lists.
+export const MATRIX_TUNING: Record<string, { daily: number; weekly: number; weeklyTimes: number; monthly: number }> = {
+  'מטבח': { daily: 30, weekly: 10, weeklyTimes: 1, monthly: 15 },
+  'פינת קפה': { daily: 15, weekly: 15, weeklyTimes: 1, monthly: 20 },
+  'מקרר': { daily: 0, weekly: 0, weeklyTimes: 1, monthly: 10 },
+  'מחסן / חדר שירות': { daily: 0, weekly: 15, weeklyTimes: 1, monthly: 20 },
+  'משרד': { daily: 20, weekly: 10, weeklyTimes: 1, monthly: 25 },
+  'שירותים': { daily: 20, weekly: 10, weeklyTimes: 1, monthly: 10 },
+  'גן / מעון': { daily: 60, weekly: 20, weeklyTimes: 1, monthly: 20 },
+  'חצר / גינת משחקים': { daily: 15, weekly: 10, weeklyTimes: 1, monthly: 10 },
+  "ג'ימבורי": { daily: 60, weekly: 15, weeklyTimes: 1, monthly: 25 },
+  'לובי / מבואה / אזור ישיבה': { daily: 15, weekly: 10, weeklyTimes: 1, monthly: 15 },
+  'מסדרון': { daily: 10, weekly: 10, weeklyTimes: 1, monthly: 15 },
+  'חדר מדרגות': { daily: 10, weekly: 10, weeklyTimes: 1, monthly: 0 },
+  'מעליות / לובי מעליות': { daily: 15, weekly: 0, weeklyTimes: 1, monthly: 0 },
+}
+
+export function applyMatrixTuning(ts: SpaceType[]): SpaceType[] {
+  return ts.map((t) => {
+    const m = MATRIX_TUNING[t.name]
+    if (!m) return t
+    const cell = (l: Level) => ({ ...t.matrix[l], minutes: m.daily })
+    return { ...t, matrix: { 1: cell(1), 2: cell(2), 3: cell(3) }, weeklyMin: m.weekly, weeklyTimes: m.weeklyTimes, monthlyMin: m.monthly }
+  })
+}
+
+types.splice(0, types.length, ...applyMatrixTuning(types))
+
 const sites: Site[] = [
   { id: 'bb', name: 'בני ברק – גוטמאכר 8 (מעון)', hours: { start: h(7, 30), end: h(17) } },
   { id: 'pt', name: 'פתח תקווה – שושנים 12', hours: { start: h(8), end: h(18) } },

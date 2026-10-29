@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AppData } from './types'
-import { seed } from './seed'
+import { applyMatrixTuning, seed } from './seed'
 
 const KEY = 'ezer-cleaning-scheduler-v18'
 
@@ -15,6 +15,14 @@ function load(): AppData {
         if (!localStorage.getItem('ezer-m-buffer0')) {
           if (d.settings.buffer === 5) d.settings.buffer = 0
           localStorage.setItem('ezer-m-buffer0', '1')
+        }
+      } catch { /* ignore */ }
+      // one-off migration: master matrix durations agreed on 2026-10 (the site overrides that tested them are cleared)
+      try {
+        if (!localStorage.getItem('ezer-m-matrix1')) {
+          d.types = applyMatrixTuning(d.types)
+          d.sites = d.sites.map((x) => ({ ...x, overrides: undefined }))
+          localStorage.setItem('ezer-m-matrix1', '1')
         }
       } catch { /* ignore */ }
       // keep user edits but refresh site names (fixes the earlier misspelling)
