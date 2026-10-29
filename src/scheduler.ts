@@ -264,16 +264,21 @@ function diagnose(states: WorkerState[], job: Job, blocked: Interval[], buffer: 
 /** Gaps shorter than this keep two jobs in one continuous stint; longer gaps count as a split shift (off duty in between). */
 const STINT_GAP = 120
 
-/** Minutes of presence in a day: stints of consecutive jobs, measured from first start to last end. */
-export function presenceMin(intervals: readonly (readonly number[])[]): number {
-  const iv = intervals.map((x) => [x[0], x[1]]).sort((a, b) => a[0] - b[0])
-  let total = 0, curS = -1, curE = -1
+/** Continuous stints of work in a day: consecutive jobs with a gap shorter than STINT_GAP are one stint. */
+export function stintsOf(intervals: readonly (readonly number[])[]): [number, number][] {
+  const iv = intervals.map((x) => [x[0], x[1]] as [number, number]).sort((a, b) => a[0] - b[0])
+  const out: [number, number][] = []
   for (const [a, b] of iv) {
-    if (curS < 0) { curS = a; curE = b }
-    else if (a - curE < STINT_GAP) curE = Math.max(curE, b)
-    else { total += curE - curS; curS = a; curE = b }
+    const last = out[out.length - 1]
+    if (last && a - last[1] < STINT_GAP) last[1] = Math.max(last[1], b)
+    else out.push([a, b])
   }
-  return curS < 0 ? total : total + (curE - curS)
+  return out
+}
+
+/** Minutes of presence in a day: the length of all stints. */
+export function presenceMin(intervals: readonly (readonly number[])[]): number {
+  return stintsOf(intervals).reduce((a, [x, y]) => a + (y - x), 0)
 }
 
 export interface HoursAlert { workerId: string; day: number | null; minutes: number; limit: number }

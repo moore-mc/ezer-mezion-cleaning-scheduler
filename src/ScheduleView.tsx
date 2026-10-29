@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { AppData, Job, Override, Placement, ScheduleResult, Worker } from './types'
 import { groupWindows, recommendFixes } from './recommend'
 import type { FixPlan } from './recommend'
-import { DAY, DAY_NAMES, addDays, floorMoves, fmt, hoursReport, overrideKey } from './scheduler'
+import { DAY, DAY_NAMES, addDays, floorMoves, fmt, hoursReport, overrideKey, stintsOf } from './scheduler'
 import type { Space } from './types'
 import { Btn, Card, DaySelect, NumInput, TimeInput } from './ui'
 
@@ -32,6 +32,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     return i >= 0 && i < 7 ? i : 0
   })
   const [selected, setSelected] = useState<string | null>(null)
+  const [detail, setDetail] = useState(false)
   const [view, setView] = useState<'list' | 'timeline'>(() => {
     try { return localStorage.getItem('ezer-view') === 'timeline' ? 'timeline' : 'list' } catch { return 'list' }
   })
@@ -183,8 +184,108 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
     .filter(([k]) => k.startsWith(weekStart + '|'))
     .map(([k, o]) => ({ id: k.slice(weekStart.length + 1), o }))
 
+  const WeekSummary = () => {
+    const dayIdx = [0, 1, 2, 3, 4, 5, ...(result.placements.some((p) => Math.floor(p.start / DAY) === 6) ? [6] : [])]
+    const multi = !!site && site.floors.length > 1
+    const open = (d: number) => {
+      setDay(d); setDetail(true)
+      setTimeout(() => document.getElementById('day-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+    }
+    const dayLimit = data.settings.maxDailyHours * 60, weekLimit = data.settings.maxWeeklyHours * 60
+    const cell = (wid: string, d: number) => {
+      const ps = result.placements.filter((p) => p.workerId === wid && Math.floor(p.start / DAY) === d)
+      const counts = new Map<number, number>()
+      const floorsUsed = new Set<number>()
+      for (const p of ps) {
+        const j = jobById.get(p.jobId)!
+        counts.set(typeIdx(j.spaceId), (counts.get(typeIdx(j.spaceId)) ?? 0) + 1)
+        floorsUsed.add(data.spaces.find((x) => x.id === j.spaceId)?.floor ?? 0)
+      }
+      return { ps, types: [...counts.entries()].sort((a, b) => b[1] - a[1]), floorsUsed: [...floorsUsed].sort(), stints: stintsOf(ps.map((p) => [p.start - d * DAY, p.end - d * DAY])) }
+    }
+    return (
+      <div className="ws-wrap">
+        <table className="ws">
+          <thead>
+            <tr>
+              <th className="ws-name">עובד</th>
+              {dayIdx.map((d) => {
+                const closedDay = data.settings.closedDates.includes(addDays(weekStart, d))
+                return <th key={d}><b>{DAY_NAMES[d]}</b><small>{addDays(weekStart, d).slice(8)}/{addDays(weekStart, d).slice(5, 7)}{closedDay && ' · סגור'}</small></th>
+              })}
+              <th className="ws-total">סה״כ שבוע</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.workers.map((w) => {
+              const rep = hours.byWorker[w.id]
+              const all = result.placements.filter((p) => p.workerId === w.id)
+              const work = all.reduce((a, p) => a + p.end - p.start, 0)
+              const overWeek = (rep?.week ?? 0) > weekLimit
+              return (
+                <tr key={w.id}>
+                  <th className="ws-name" style={{ borderColor: w.color }}><i style={{ background: w.color }} />{w.name}</th>
+                  {dayIdx.map((d) => {
+                    const c = cell(w.id, d)
+                    const sh = w.shifts[d]
+                    if (!c.ps.length) return <td key={d} className="ws-empty">{w.absences.includes(addDays(weekStart, d)) ? 'נעדר' : sh ? <small>זמין <span className="ltr">{fmt(sh.start)}–{fmt(sh.end)}</span></small> : '—'}</td>
+                    const pres = rep?.days[d] ?? 0
+                    return (
+                      <td key={d}>
+                        <button className={`wcell ${pres > dayLimit ? 'over' : ''}`} onClick={() => open(d)} title="לחצי לפירוט שעתי של היום">
+                          <b className="ltr">{c.stints.map(([a, b]) => `${fmt(a)}–${fmt(b)}`).join(' · ')}</b>
+                          <span>{c.ps.length} משימות · {hh(pres)} ש׳{pres > dayLimit && ' ⚠'}</span>
+                          <span className="wc-types">
+                            {c.types.slice(0, 3).map(([ti, n]) => (
+                              <em key={ti}><i className="tcol" style={{ ['--h' as string]: hueOf(Math.max(0, ti)) } as React.CSSProperties} />{data.types[ti]?.name} ×{n}</em>
+                            ))}
+                            {c.types.length > 3 && <em>+{c.types.length - 3}</em>}
+                          </span>
+                          {multi && <small>קומות: {c.floorsUsed.map((f) => site!.floors[f].replace(/^קומה\s*/, '')).join(', ')}</small>}
+                        </button>
+                      </td>
+                    )
+                  })}
+                  <td className="ws-total">
+                    <b className={overWeek ? 'bad' : ''}>{hh(rep?.week ?? 0)} ש׳{overWeek && ' ⚠'}</b>
+                    <small>נוכחות (מקס׳ {data.settings.maxWeeklyHours})</small>
+                    <small>{hh(work)} ש׳ ניקיון · {all.length} משימות</small>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th className="ws-name">סה״כ יום</th>
+              {dayIdx.map((d) => {
+                const ps = result.placements.filter((p) => Math.floor(p.start / DAY) === d)
+                const un = result.unscheduled.filter((u) => Math.floor(u.job.earliest / DAY) === d).length
+                return (
+                  <td key={d}>
+                    <b>{ps.length} משימות</b>
+                    <small>{hh(ps.reduce((a, p) => a + p.end - p.start, 0))} ש׳ ניקיון</small>
+                    {un > 0 && <small className="bad">{un} ללא שיבוץ</small>}
+                  </td>
+                )
+              })}
+              <td className="ws-total"><b>{result.placements.length} משימות</b><small>{hh(result.placements.reduce((a, p) => a + p.end - p.start, 0))} ש׳ ניקיון</small></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    )
+  }
+
   return (
     <div className="sched">
+      <Card title="סיכום שבועי – מה כל עובד עושה בכל יום"><WeekSummary /></Card>
+
+      <div className="detail-toggle">
+        <Btn onClick={() => setDetail(!detail)}>{detail ? 'הסתר את הפירוט השעתי' : 'הצג פירוט שעתי לפי יום'}</Btn>
+      </div>
+
+      {detail && <>
       <div className="daytabs">
         {DAY_NAMES.map((n, d) => {
           const isClosed = data.settings.closedDates.includes(addDays(weekStart, d))
@@ -200,7 +301,8 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
         })}
       </div>
 
-      <Card title={`לוח יומי – יום ${DAY_NAMES[day]}`} actions={<div className="viewbar">
+      <div id="day-detail" />
+      <Card title={`פירוט שעתי – יום ${DAY_NAMES[day]}`} actions={<div className="viewbar">
         <div className="legend">{dayTypes.map((i) => <span key={i}><i style={{ ['--h' as string]: hueOf(i) } as React.CSSProperties} className="tcol" />{data.types[i].name}</span>)}</div>
         <div className="seg" role="group" aria-label="תצוגה">
           <button className={view === 'list' ? 'on' : ''} onClick={() => changeView('list')}>רשימה</button>
@@ -248,6 +350,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
           </div>
         )}
       </Card>
+      </>}
 
       {hours.alerts.length > 0 && (
         <Card title={`התראות שעות נוספות (${hours.alerts.length})`}>
