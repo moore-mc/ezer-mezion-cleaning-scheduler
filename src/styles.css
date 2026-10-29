@@ -229,3 +229,5 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .gblk .gl .t { font-weight: 600; color: var(--muted); font-size: 12px; }
 .gblk small { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gblk.sel { outline: 2px solid var(--brand); z-index: 2; } .gblk.warn { outline: 2px dashed var(--warn); }
+
+.reco li.rli { display: flex; justify-content: space-between; align-items: center; gap: 12px; }

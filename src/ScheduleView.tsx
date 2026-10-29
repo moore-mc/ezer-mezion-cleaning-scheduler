@@ -128,8 +128,9 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                 <b>להוסיף שעות לעובדים קיימים</b>
                 <ul>
                   {plan.extensions.map((e) => (
-                    <li key={`${e.workerId}|${e.day}`}>
-                      <b>{e.workerName}</b> · יום {DAY_NAMES[e.day]}: <span className="ltr">{win(e.before)}</span> ← <span className="ltr">{win(e.after)}</span> <small className="muted">(+{hh(e.addedMin)} ש׳)</small>
+                    <li key={`${e.workerId}|${e.day}`} className="rli">
+                      <div><b>{e.workerName}</b> · יום {DAY_NAMES[e.day]}: <span className="ltr">{win(e.before)}</span> ← <span className="ltr">{win(e.after)}</span> <small className="muted">(+{hh(e.addedMin)} ש׳)</small></div>
+                      <Btn onClick={() => applyPlan({ ...plan, extensions: [e], hires: [] })}>החל</Btn>
                     </li>
                   ))}
                 </ul>
@@ -140,11 +141,14 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                 <b>להוסיף {plan.hires.length === 1 ? 'עובד אחד' : `${plan.hires.length} עובדים`}</b>
                 <ul>
                   {plan.hires.map((h) => (
-                    <li key={h.worker.id}>
-                      <b>{h.worker.name}</b> <small className="muted">· כ-{hh(h.weeklyMin)} ש׳ בשבוע</small>
-                      {groupWindows(h.windows).map((g, i) => (
-                        <div key={i}>{g.days.map((d) => SHORT[d]).join(' ')} · <span className="ltr">{fmt(g.start)}–{fmt(g.end)}</span></div>
-                      ))}
+                    <li key={h.worker.id} className="rli">
+                      <div>
+                        <b>{h.worker.name}</b> <small className="muted">· כ-{hh(h.weeklyMin)} ש׳ בשבוע</small>
+                        {groupWindows(h.windows).map((g, i) => (
+                          <div key={i}>{g.days.map((d) => SHORT[d]).join(' ')} · <span className="ltr">{fmt(g.start)}–{fmt(g.end)}</span></div>
+                        ))}
+                      </div>
+                      <Btn onClick={() => applyPlan({ ...plan, extensions: [], hires: [h] })}>הוסף עובד</Btn>
                     </li>
                   ))}
                 </ul>
@@ -154,9 +158,9 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
               {solved
                 ? '✓ אחרי ההמלצה כל המשימות משובצות ואין התראות שעות נוספות.'
                 : `אחרי ההמלצה: ${plan.after.unscheduled.length} משימות ללא שיבוץ · ${plan.after.alerts.length} התראות שעות נוספות (כעת: ${plan.before.unscheduled} · ${plan.before.alerts}).`}
-              {' '}ההמלצה מעדיפה הוספת שעות לעובדים קיימים לפני גיוס, ושומרת על {data.settings.maxDailyHours} שעות ביום.
+              {' '}אפשר להחיל כל המלצה בנפרד – ההמלצות מחושבות מחדש אחרי כל שינוי. ההמלצה מעדיפה הוספת שעות לעובדים קיימים לפני גיוס, ושומרת על {data.settings.maxDailyHours} שעות ביום.
             </p>
-            <Btn kind="primary" onClick={() => applyPlan(plan)}>החל את ההמלצה</Btn>
+            <Btn kind="primary" onClick={() => applyPlan(plan)}>{plan.extensions.length + plan.hires.length > 1 ? 'החל את כל ההמלצות' : 'החל את ההמלצה'}</Btn>
           </>
         )}
       </div>
