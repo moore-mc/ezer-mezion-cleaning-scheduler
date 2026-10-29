@@ -19,10 +19,10 @@ function load(): AppData {
       } catch { /* ignore */ }
       // one-off migration: master matrix durations agreed on 2026-10 (the site overrides that tested them are cleared)
       try {
-        if (!localStorage.getItem('ezer-m-matrix1')) {
+        if (!localStorage.getItem('ezer-m-matrix2')) {
           d.types = applyMatrixTuning(d.types)
           d.sites = d.sites.map((x) => ({ ...x, overrides: undefined }))
-          localStorage.setItem('ezer-m-matrix1', '1')
+          localStorage.setItem('ezer-m-matrix2', '1')
         }
       } catch { /* ignore */ }
       // keep user edits but refresh site names (fixes the earlier misspelling)

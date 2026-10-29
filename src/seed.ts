@@ -54,14 +54,14 @@ for (const t of types) {
 // Types not listed keep the estimate computed from the task lists.
 export const MATRIX_TUNING: Record<string, { daily: number; weekly: number; weeklyTimes: number; monthly: number }> = {
   'מטבח': { daily: 30, weekly: 10, weeklyTimes: 1, monthly: 15 },
-  'פינת קפה': { daily: 15, weekly: 15, weeklyTimes: 1, monthly: 20 },
+  'פינת קפה': { daily: 10, weekly: 0, weeklyTimes: 1, monthly: 0 },
   'מקרר': { daily: 0, weekly: 0, weeklyTimes: 1, monthly: 10 },
   'מחסן / חדר שירות': { daily: 0, weekly: 15, weeklyTimes: 1, monthly: 20 },
   'משרד': { daily: 20, weekly: 10, weeklyTimes: 1, monthly: 25 },
   'שירותים': { daily: 20, weekly: 10, weeklyTimes: 1, monthly: 10 },
   'גן / מעון': { daily: 60, weekly: 20, weeklyTimes: 1, monthly: 20 },
   'חצר / גינת משחקים': { daily: 15, weekly: 10, weeklyTimes: 1, monthly: 10 },
-  "ג'ימבורי": { daily: 60, weekly: 15, weeklyTimes: 1, monthly: 25 },
+  "ג'ימבורי": { daily: 45, weekly: 15, weeklyTimes: 1, monthly: 25 },
   'לובי / מבואה / אזור ישיבה': { daily: 15, weekly: 10, weeklyTimes: 1, monthly: 15 },
   'מסדרון': { daily: 10, weekly: 10, weeklyTimes: 1, monthly: 15 },
   'חדר מדרגות': { daily: 10, weekly: 10, weeklyTimes: 1, monthly: 0 },
