@@ -34,9 +34,9 @@ ok(act.length + r.unscheduled.filter((u) => u.job.kind === 'activity').length ==
 // override: skip + pin
 const jid = r.placements[0].jobId
 const k = `${ws}|${jid}`
-const r2 = schedule({ ...seed, overrides: { [k]: { pin: { workerId: 'w3', start: 3 * DAY + 600 } } } }, ws)
+const r2 = schedule({ ...seed, overrides: { [k]: { pin: { workerId: 'w4', start: 3 * DAY + 600 } } } }, ws)
 const pp = r2.placements.find((p) => p.jobId === jid)!
-ok(pp.pinned && pp.workerId === 'w3' && pp.start === 3 * DAY + 600, 'pin override respected')
+ok(pp.pinned && pp.workerId === 'w4' && pp.start === 3 * DAY + 600, 'pin override respected')
 const r3 = schedule({ ...seed, overrides: { [k]: { skip: true } } }, ws)
 ok(!r3.placements.some((p) => p.jobId === jid) && r3.skipped.length === 1, 'skip override respected')
 

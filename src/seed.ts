@@ -49,7 +49,7 @@ const spaces: Space[] = FILE_SITES.flatMap((site) =>
   site.rows.flatMap((row) =>
     row.codes.map((code): Space => ({
       id: `${site.id}-${code}`, siteId: site.id, name: `${row.type} ${code}`,
-      typeId: slug(row.type), level: row.level,
+      typeId: slug(row.type), level: site.id === 'bb' ? 1 : row.level, // בני ברק: כל החללים ברמה 1
       blocked: [], activities: [], events: [],
     }))))
 
@@ -63,15 +63,12 @@ const activity = (ids: string[], days: number[], start: number, end: number, lab
   ids.forEach((id) => days.forEach((d) => byId.get(id)?.activities.push({ id: `${id}-a${d}-${start}`, day: d, start, end, label, withinMin })))
 const thisWeekDay = (d: number) => addDays(weekStartOf(toISO(new Date())), d)
 
-// בני ברק – מעון גוטמאכר. הנחה: המעון פעיל א׳–ה׳ 07:30–16:30 (שישי סגור) ואי אפשר לנקות את חללי הילדים בזמן הפעילות.
-block(['bb-H1', 'bb-H2'], SUN_THU, h(7, 30), h(16, 30), 'שעות פעילות המעון')
-block(['bb-K1', 'bb-K2', 'bb-K3', 'bb-K4'], SUN_THU, h(7, 30), h(16, 30), 'ילדים בחצר / שעות המעון')
-block(['bb-L1'], SUN_THU, h(7, 30), h(19), 'שעות פעילות הג׳ימבורי')
-block(['bb-E1', 'bb-E2', 'bb-E3'], [0, 2], h(9), h(10), 'ישיבת צוות')
-// מטבח המעון: ניקיון חובה אחרי כל ארוחה (המטבח חסום בזמן הארוחה עצמה).
-activity(['bb-A1'], SUN_THU, h(7, 45), h(8, 45), 'ארוחת בוקר של הילדים', 90)
-activity(['bb-A1'], SUN_THU, h(12), h(13), 'ארוחת צהריים של הילדים', 90)
-activity(['bb-A1'], SUN_THU, h(15, 30), h(16, 15), 'ארוחת אחה״צ של הילדים', 90)
+// בני ברק – גוטמאכר: אין קבלת קהל, לכן מנקים רק בבוקר עד 09:00 ומ-16:30 (שישי פתוח כל היום).
+// המעון (גנים, חצר, ג׳ימבורי) – רק עד 07:30 ומ-16:30. בלי פעילויות ואירועים.
+const BB = spaces.filter((x) => x.siteId === 'bb').map((x) => x.id)
+const BB_DAYCARE = ['bb-H1', 'bb-H2', 'bb-K1', 'bb-K2', 'bb-K3', 'bb-K4', 'bb-L1']
+block(BB.filter((id) => !BB_DAYCARE.includes(id)), SUN_THU, h(9), h(16, 30), 'אין ניקיון בין 09:00 ל-16:30 (אין קבלת קהל – ניקיון בבוקר ובערב)')
+block(BB_DAYCARE, SUN_THU, h(7, 30), h(16, 30), 'שעות פעילות המעון')
 // פתח תקווה – שושנים 12
 // הנחה: קבלת קהל והשאלת ציוד פתוחים א׳–ה׳ 09:00–13:00 / 09:00–14:00; המועדונית והחצר פעילות אחה״צ 15:00–18:00.
 block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')
@@ -98,12 +95,11 @@ const morning = { start: h(7), end: h(12) }
 // Demo workers (the file has no staff data) – use the "how many cleaners" tab for a real estimate.
 const FRI_MORNING = { start: h(6), end: h(14) }
 const workers: Worker[] = [
-  // בני ברק: Friday is a compressed 06–14 day, so everybody (also the evening crew) works it.
-  w('w1', 'bb', 'רונית', '#2f7f6f', h(6), h(14), FRI_MORNING),
-  w('w2', 'bb', 'מרים', '#5b6bbf', h(9), h(17), FRI_MORNING),
-  w('w3', 'bb', 'עמית', '#2e86a8', h(6), h(14), FRI_MORNING),
-  w('w4', 'bb', 'יוסי', '#c2703d', h(9), h(17), FRI_MORNING),
-  w('w5', 'bb', 'נועה', '#b5476b', h(14), h(22), FRI_MORNING),
+  // בני ברק: ניקיון רק בבוקר (עד 09:00) ובערב (מ-16:30), ובשישי כל הבוקר – לכן עובדי בוקר חלקיים ועובדי ערב חלקיים.
+  w('w1', 'bb', 'רונית', '#2f7f6f', h(6), h(10), FRI_MORNING),
+  w('w2', 'bb', 'מרים', '#5b6bbf', h(6), h(10), FRI_MORNING),
+  w('w4', 'bb', 'יוסי', '#c2703d', h(16), h(22), null),
+  w('w5', 'bb', 'נועה', '#b5476b', h(16), h(22), null),
   // פתח תקווה
   w('w6', 'pt', 'דנה', '#b5476b', h(6), h(14), FRI_MORNING),
   w('w7', 'pt', 'אבי', '#7a8f2a', h(8), h(16), FRI_MORNING),
