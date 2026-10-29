@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import type { AppData, Level, SiteRule, Space, SpaceType, Worker } from './types'
+import type { AppData, FreqRule, Level, SiteRule, Space, SpaceType, Worker } from './types'
 import { DAY_NAMES, spaceMinutes } from './scheduler'
 import { Btn, Card, DaySelect, LevelPill, Modal, NumInput, TimeInput, uid } from './ui'
 
@@ -115,6 +115,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
       <SiteTotals data={data} siteId={siteId} />
       <SiteHoursCard data={data} setData={setData} siteId={siteId} />
       <SiteRulesCard data={data} setData={setData} siteId={siteId} />
+      <FreqRulesCard data={data} setData={setData} siteId={siteId} />
       <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
         onLevel={(id, level) => patch(id, { level })}
         onOpen={(id) => {
@@ -150,6 +151,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
                   </label>
                   <label>עקיפת משך<NumInput value={s.minutesOverride ?? 0} onChange={(v) => patch(s.id, { minutesOverride: v || undefined })} suffix="דק׳ (0=מטריצה)" /></label>
                   <label>עקיפת סבבים<NumInput value={s.roundsOverride ?? 0} max={12} onChange={(v) => patch(s.id, { roundsOverride: v || undefined })} suffix="ביום (0=מטריצה)" /></label>
+                  <label>תדירות ניקיון יומי<NumInput value={s.timesPerWeek ?? 0} max={7} onChange={(v) => patch(s.id, { timesPerWeek: v || undefined })} suffix="פעמים בשבוע (0=לפי הסניף)" /></label>
                   <label>שעת ניקיון מועדפת
                     <select className="inp" value={s.slot ?? ''} onChange={(e) => patch(s.id, { slot: (e.target.value || undefined) as Space['slot'] })}>
                       <option value="">אוטומטי</option>
@@ -439,20 +441,56 @@ function SiteTotals({ data, siteId }: { data: AppData; siteId: string }) {
   )
 }
 
+type Mode = 'all' | 'except' | 'only'
+
+/** "Applies to": all spaces / all but some / only some - with quick selection by space type. */
+function SpacePicker({ data, siteId, mode, spaceIds, onChange }: {
+  data: AppData; siteId: string; mode: Mode; spaceIds: string[]; onChange: (p: { mode?: Mode; spaceIds?: string[] }) => void
+}) {
+  const spaces = data.spaces.filter((x) => x.siteId === siteId)
+  const typesHere = [...new Set(spaces.map((x) => x.typeId))].map((id) => data.types.find((t) => t.id === id)).filter(Boolean) as SpaceType[]
+  const toggle = (sid: string) => onChange({ spaceIds: spaceIds.includes(sid) ? spaceIds.filter((x) => x !== sid) : [...spaceIds, sid] })
+  const toggleType = (typeId: string) => {
+    const ids = spaces.filter((x) => x.typeId === typeId).map((x) => x.id)
+    const all = ids.every((i) => spaceIds.includes(i))
+    onChange({ spaceIds: all ? spaceIds.filter((i) => !ids.includes(i)) : [...new Set([...spaceIds, ...ids])] })
+  }
+  return (
+    <>
+      <label>חל על
+        <select className="inp" value={mode} onChange={(e) => onChange({ mode: e.target.value as Mode })}>
+          <option value="all">כל החללים בסניף</option>
+          <option value="except">כל החללים חוץ מ…</option>
+          <option value="only">רק החללים שבחרתי</option>
+        </select>
+      </label>
+      {mode !== 'all' && (
+        <details className="rulespaces" open={spaceIds.length === 0} style={{ flexBasis: '100%' }}>
+          <summary>{mode === 'except' ? 'חללים שהכלל לא חל עליהם' : 'חללים שהכלל חל עליהם'} ({spaceIds.length})</summary>
+          <div className="row wrap">
+            {typesHere.map((t) => {
+              const ids = spaces.filter((x) => x.typeId === t.id).map((x) => x.id)
+              const on = ids.every((i) => spaceIds.includes(i))
+              return <button key={t.id} className={`chipbtn ${on ? 'on' : ''}`} onClick={() => toggleType(t.id)}>{t.name} ({ids.length})</button>
+            })}
+          </div>
+          <div className="spacechecks">
+            {spaces.map((x) => (
+              <label className="inline" key={x.id}><input type="checkbox" checked={spaceIds.includes(x.id)} onChange={() => toggle(x.id)} /> {x.name}</label>
+            ))}
+          </div>
+        </details>
+      )}
+    </>
+  )
+}
+
 function SiteRulesCard({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
   const site = data.sites.find((x) => x.id === siteId)
   if (!site) return null
   const rules = site.rules ?? []
-  const spaces = data.spaces.filter((x) => x.siteId === siteId)
   const setRules = (next: SiteRule[]) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, rules: next } : x) }))
   const patch = (id: string, p: Partial<SiteRule>) => setRules(rules.map((r) => r.id === id ? { ...r, ...p } : r))
-  const toggle = (r: SiteRule, sid: string) => patch(r.id, { spaceIds: r.spaceIds.includes(sid) ? r.spaceIds.filter((x) => x !== sid) : [...r.spaceIds, sid] })
-  const toggleType = (r: SiteRule, typeId: string) => {
-    const ids = spaces.filter((x) => x.typeId === typeId).map((x) => x.id)
-    const all = ids.every((i) => r.spaceIds.includes(i))
-    patch(r.id, { spaceIds: all ? r.spaceIds.filter((i) => !ids.includes(i)) : [...new Set([...r.spaceIds, ...ids])] })
-  }
-  const typesHere = [...new Set(spaces.map((x) => x.typeId))].map((id) => data.types.find((t) => t.id === id)).filter(Boolean) as SpaceType[]
   return (
     <Card title="אילוצי שעות לכל הסניף"
       actions={<Btn onClick={() => setRules([...rules, { id: uid('r-'), label: 'אילוץ חדש', days: [0, 1, 2, 3, 4], start: 9 * 60, end: 16 * 60 + 30, mode: 'all', spaceIds: [] }])}>+ הוסף אילוץ</Btn>}>
@@ -475,31 +513,39 @@ function SiteRulesCard({ data, setData, siteId }: { data: AppData; setData: SetD
           <div className="row wrap">
             <label>לא מנקים מהשעה<TimeInput value={r.start} onChange={(v) => patch(r.id, { start: v })} /></label>
             <label>עד<TimeInput value={r.end} onChange={(v) => patch(r.id, { end: v })} /></label>
-            <label>חל על
-              <select className="inp" value={r.mode} onChange={(e) => patch(r.id, { mode: e.target.value as SiteRule['mode'] })}>
-                <option value="all">כל החללים בסניף</option>
-                <option value="except">כל החללים חוץ מ…</option>
-                <option value="only">רק החללים שבחרתי</option>
-              </select>
-            </label>
+            <SpacePicker data={data} siteId={siteId} mode={r.mode} spaceIds={r.spaceIds} onChange={(p) => patch(r.id, p)} />
           </div>
-          {r.mode !== 'all' && (
-            <details className="rulespaces" open={r.spaceIds.length === 0}>
-              <summary>{r.mode === 'except' ? 'חללים שהאילוץ לא חל עליהם' : 'חללים שהאילוץ חל עליהם'} ({r.spaceIds.length})</summary>
-              <div className="row wrap">
-                {typesHere.map((t) => {
-                  const ids = spaces.filter((x) => x.typeId === t.id).map((x) => x.id)
-                  const on = ids.every((i) => r.spaceIds.includes(i))
-                  return <button key={t.id} className={`chipbtn ${on ? 'on' : ''}`} onClick={() => toggleType(r, t.id)}>{t.name} ({ids.length})</button>
-                })}
-              </div>
-              <div className="spacechecks">
-                {spaces.map((x) => (
-                  <label className="inline" key={x.id}><input type="checkbox" checked={r.spaceIds.includes(x.id)} onChange={() => toggle(r, x.id)} /> {x.name}</label>
-                ))}
-              </div>
-            </details>
-          )}
+        </div>
+      ))}
+    </Card>
+  )
+}
+
+function FreqRulesCard({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
+  const site = data.sites.find((x) => x.id === siteId)
+  if (!site) return null
+  const rules = site.freqRules ?? []
+  const days = data.settings.workDays.length
+  const setRules = (next: FreqRule[]) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, freqRules: next } : x) }))
+  const patch = (id: string, p: Partial<FreqRule>) => setRules(rules.map((r) => r.id === id ? { ...r, ...p } : r))
+  return (
+    <Card title="תדירות ניקיון לכל הסניף"
+      actions={<Btn onClick={() => setRules([...rules, { id: uid('f-'), label: 'תדירות חדשה', mode: 'all', spaceIds: [], timesPerWeek: 2 }])}>+ הוסף תדירות</Btn>}>
+      <p className="muted">
+        ברירת המחדל: הניקיון היומי מתבצע בכל יום עבודה ({days} ימים בשבוע). כאן אפשר להגדיר <b>כמה פעמים בשבוע</b> לנקות את הניקיון היומי – לכל החללים, לכולם חוץ מחללים מסוימים, או רק לחללים שבחרת.
+        הימים מתפזרים על פני השבוע. כללים מאוחרים גוברים על קודמים, ותדירות שהוגדרה בכרטיס חלל גוברת על הכל. ניקיון שבועי וחודשי לא מושפע.
+      </p>
+      {rules.length === 0 && <p className="muted">אין כללי תדירות ברמת הסניף.</p>}
+      {rules.map((r) => (
+        <div className="siterule" key={r.id}>
+          <div className="row wrap">
+            <input className="inp" style={{ minWidth: 280 }} value={r.label} aria-label="שם הכלל" onChange={(e) => patch(r.id, { label: e.target.value })} />
+            <Btn kind="danger" onClick={() => confirm(`למחוק את הכלל "${r.label}"?`) && setRules(rules.filter((x) => x.id !== r.id))}>מחק</Btn>
+          </div>
+          <div className="row wrap">
+            <label>ניקיון יומי<NumInput value={r.timesPerWeek} min={1} max={days} onChange={(v) => patch(r.id, { timesPerWeek: Math.min(days, Math.max(1, v)) })} suffix="פעמים בשבוע" /></label>
+            <SpacePicker data={data} siteId={siteId} mode={r.mode} spaceIds={r.spaceIds} onChange={(p) => patch(r.id, p)} />
+          </div>
         </div>
       ))}
     </Card>

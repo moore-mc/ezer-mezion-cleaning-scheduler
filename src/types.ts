@@ -64,6 +64,15 @@ export interface SiteRule {
   spaceIds: string[]
 }
 
+export interface FreqRule {
+  id: string
+  label: string
+  mode: 'all' | 'except' | 'only'
+  spaceIds: string[]
+  /** The daily cleaning is done this many times a week (spread over the working days) instead of every day. */
+  timesPerWeek: number
+}
+
 export interface Site {
   id: string
   name: string
@@ -71,6 +80,8 @@ export interface Site {
   hours?: { start: number; end: number }
   /** Site-wide hour constraints: windows in which cleaning is not allowed, for all / some spaces of the site. */
   rules?: SiteRule[]
+  /** Site-wide cleaning frequency (times a week) for all / some spaces. */
+  freqRules?: FreqRule[]
 }
 
 export interface Space {
@@ -82,6 +93,8 @@ export interface Space {
   /** Optional per-space overrides of the matrix cell (rounds per day / minutes per round). */
   minutesOverride?: number
   roundsOverride?: number
+  /** Daily cleaning only this many times a week (overrides the site rule). */
+  timesPerWeek?: number
   /** Preferred part of the day for once-a-day / weekly cleans: before 12:00 or after 12:00. */
   slot?: 'morning' | 'evening'
   /** Recurring weekly windows in which cleaning is impossible. */

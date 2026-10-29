@@ -1,5 +1,5 @@
 import type {
-  AppData, SiteRule, Job, Override, Placement, ScheduleResult, Space, Unscheduled, Worker,
+  AppData, SiteRule, FreqRule, Job, Override, Placement, ScheduleResult, Space, Unscheduled, Worker,
 } from './types'
 
 export const DAY = 1440
@@ -59,19 +59,32 @@ function cellOf(data: AppData, space: Space) {
   }
 }
 
+/** How many times a week the daily cleaning of a space runs: the space's own value, else the last matching site rule, else every working day. */
+export function freqFor(data: AppData, space: Space): number | undefined {
+  if (space.timesPerWeek && space.timesPerWeek > 0) return space.timesPerWeek
+  const rules: FreqRule[] = data.sites.find((x) => x.id === space.siteId)?.freqRules ?? []
+  let f: number | undefined
+  for (const r of rules) {
+    const hit = r.mode === 'all' || (r.mode === 'only' ? r.spaceIds.includes(space.id) : !r.spaceIds.includes(space.id))
+    if (hit && r.timesPerWeek > 0) f = r.timesPerWeek
+  }
+  return f
+}
+
 /** Cleaning minutes of one space: per working day (daily rounds), per week (weekly list) and per 4 weeks (monthly list). */
 export function spaceMinutes(data: AppData, space: Space) {
   const c = cellOf(data, space)
   const days = Math.max(1, data.settings.workDays.length)
-  const daily = c.minutes > 0 && c.rounds > 0 ? c.minutes * c.rounds : 0 // per working day
+  const times = Math.min(days, freqFor(data, space) ?? days) // days a week the daily cleaning runs
+  const daily = c.minutes > 0 && c.rounds > 0 ? c.minutes * c.rounds : 0 // per cleaning day
   const weekly = c.weeklyMin // once a week
   const monthly = c.monthlyMin // once every 4 weeks
   return {
-    daily, weekly, monthly,
+    daily, weekly, monthly, times,
     /** average per working day, with weekly / monthly lists spread over the days they cover */
-    avgPerDay: daily + weekly / days + monthly / (4 * days),
-    perWeek: daily * days + weekly + monthly / 4,
-    per4Weeks: daily * days * 4 + weekly * 4 + monthly,
+    avgPerDay: (daily * times) / days + weekly / days + monthly / (4 * days),
+    perWeek: daily * times + weekly + monthly / 4,
+    per4Weeks: daily * times * 4 + weekly * 4 + monthly,
   }
 }
 
@@ -104,8 +117,14 @@ export function generateJobs(data: AppData, weekStart: string): Job[] {
       if (space.slot === 'evening') return [Math.max(from, NOON), to]
       return [from, to]
     }
+    // days on which the daily cleaning runs: every working day, or `freq` days a week spread over them
+    const freq = freqFor(data, space)
+    const hSpace = [...space.id].reduce((a, c) => a + c.charCodeAt(0), 0)
+    const dailyDays = freq && freq < openDays.length
+      ? Array.from({ length: freq }, (_, i) => openDays[(Math.floor(((i + 0.5) * openDays.length) / freq) + hSpace) % openDays.length])
+      : openDays
     if (cell.minutes > 0 && cell.rounds > 0) {
-      for (const day of openDays) {
+      for (const day of dailyDays) {
         const dayEnd = endOf(day)
         // repeated rounds happen while the site is open; a single round may use the whole working day
         const hrs = data.sites.find((x) => x.id === space.siteId)?.hours
