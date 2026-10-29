@@ -624,7 +624,7 @@ function FreqRulesCard({ data, setData, siteId }: { data: AppData; setData: SetD
 }
 
 /** Number input that can be empty (= "use the matrix value"). */
-function OptNum({ value, placeholder, onChange, min = 1, max }: { value?: number; placeholder?: number; onChange: (v: number | undefined) => void; min?: number; max?: number }) {
+function OptNum({ value, placeholder, onChange, min = 0, max }: { value?: number; placeholder?: number; onChange: (v: number | undefined) => void; min?: number; max?: number }) {
   return (
     <input className="inp num opt" type="number" min={min} max={max} value={value ?? ''} placeholder={placeholder === undefined ? '' : String(placeholder)}
       onChange={(e) => onChange(e.target.value === '' ? undefined : Math.max(min, Number(e.target.value)))} />
@@ -673,7 +673,7 @@ function SiteDurationsCard({ data, setData, siteId }: { data: AppData; setData: 
                   <td><b>{t.name}</b></td>
                   <td><OptNum value={o.daily} placeholder={levelOf(t).minutes} onChange={(v) => patchType(t.id, { daily: v })} /></td>
                   <td><OptNum value={o.weekly} placeholder={t.weeklyMin} onChange={(v) => patchType(t.id, { weekly: v })} /></td>
-                  <td><OptNum value={o.weeklyTimes} placeholder={t.weeklyTimes ?? 1} max={7} onChange={(v) => patchType(t.id, { weeklyTimes: v })} /></td>
+                  <td><OptNum value={o.weeklyTimes} placeholder={t.weeklyTimes ?? 1} min={1} max={7} onChange={(v) => patchType(t.id, { weeklyTimes: v })} /></td>
                   <td><OptNum value={o.monthly} placeholder={t.monthlyMin} onChange={(v) => patchType(t.id, { monthly: v })} /></td>
                   <td>
                     <select className="inp" value={o.monthlyEveryWeeks ?? ''} onChange={(e) => patchType(t.id, { monthlyEveryWeeks: e.target.value === '' ? undefined : Number(e.target.value) })}>
