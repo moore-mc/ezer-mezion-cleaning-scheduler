@@ -302,3 +302,6 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .avail tr.off td, .avail tr.off th { opacity: .6; }
 .avail .win { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; } .avail .win i { color: var(--muted); font-style: normal; }
 .avail .inp.time { width: 112px; }
+
+.col header .whours { color: var(--ink); font-weight: 500; margin: 2px 0; }
+.col header .whours .ltr { margin-inline-end: 4px; }

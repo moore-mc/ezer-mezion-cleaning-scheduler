@@ -77,6 +77,9 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
               <header style={{ borderColor: w.color }}>
                 <b><i style={{ background: w.color }} />{w.name}</b>
                 <small>{absent ? 'נעדר' : `${spacesCount} חללים`}</small>
+                {!absent && list.length > 0 && (
+                  <small className="whours">שעות עבודה: {stintsOf(list.map((p) => [p.start - day * DAY, p.end - day * DAY])).map(([a, b], i) => <span key={i} className="ltr">{i > 0 && ' · '}{fmt(a)}–{fmt(b)}</span>)}</small>
+                )}
                 {!absent && <strong className="sumh">{hh(total)} שעות ניקיון</strong>}
               </header>
               {list.length === 0 && <p className="muted pad">{absent ? '' : 'אין משימות'}</p>}
