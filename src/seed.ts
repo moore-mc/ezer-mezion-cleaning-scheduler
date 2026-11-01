@@ -89,7 +89,7 @@ const spaces: Space[] = FILE_SITES.flatMap((site) =>
   site.rows.flatMap((row) =>
     row.codes.map((code): Space => ({
       id: `${site.id}-${code}`, siteId: site.id, name: `${row.type} ${code}`,
-      typeId: slug(row.type), level: site.id === 'bb' ? 1 : row.level, // בני ברק: כל החללים ברמה 1
+      typeId: slug(row.type), level: site.id === 'bb' || site.id === 'rg' ? 1 : row.level, // בני ברק ורמת גן: אין קבלת קהל – כל החללים ברמה 1
       blocked: [], activities: [], events: [],
     }))))
 
@@ -121,10 +121,7 @@ block(['pt-G1', 'pt-G2', 'pt-G3'], [1, 3], h(10), h(11), 'ישיבת צוות')
 activity(['pt-F1', 'pt-F2'], [1, 3], h(17), h(20), 'חוג / הרצאת ערב', 120)
 activity(['pt-F1'], [5], h(8), h(11), 'אירוע שישי בבוקר', 180)
 byId.get('pt-F2')?.events.push({ id: 'pt-F2-ev1', date: thisWeekDay(2), start: h(18), end: h(21), label: 'אירוע התרמה', cleanBefore: true, cleanAfterWithinMin: 60 })
-// רמת גן – שד׳ ירושלים
-// הנחה: קבלת קהל פתוחה 09:00–13:00, השאלת ציוד 09:00–14:00.
-block(['rg-F1'], SUN_THU, h(9), h(13), 'קבלת קהל')
-block(['rg-G1'], SUN_THU, h(9), h(14), 'שעות השאלת ציוד')
+// רמת גן – שד׳ ירושלים: אין קבלת קהל (כל החללים ברמה 1, בלי חסימות קבלת קהל / השאלת ציוד)
 block(['rg-D1'], SUN_THU, h(9), h(10), 'ישיבת בוקר')
 activity(['rg-H1'], [1], h(18), h(20, 30), 'אירוע ערב', 90)
 

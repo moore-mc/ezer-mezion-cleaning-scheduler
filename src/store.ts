@@ -41,6 +41,14 @@ function load(): AppData {
           localStorage.setItem('ezer-m-bboffice1', '1')
         }
       } catch { /* ignore */ }
+      // one-off migration: Ramat Gan has no public reception - every space is level 1 and the reception / lending-hours blocks go
+      try {
+        if (!localStorage.getItem('ezer-m-rg1')) {
+          const gone = ['קבלת קהל', 'שעות השאלת ציוד']
+          d.spaces = d.spaces.map((sp) => sp.siteId !== 'rg' ? sp : { ...sp, level: 1, blocked: sp.blocked.filter((b) => !gone.includes(b.label)) })
+          localStorage.setItem('ezer-m-rg1', '1')
+        }
+      } catch { /* ignore */ }
       // keep user edits but refresh site names (fixes the earlier misspelling)
       return { ...d, sites: d.sites.map((x) => ({ ...x, name: seed.sites.find((y) => y.id === x.id)?.name ?? x.name })) }
     }
