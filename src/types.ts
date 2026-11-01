@@ -80,6 +80,7 @@ export interface FreqRule {
 /** Per-site override of the matrix for one space type (any field left undefined = use the matrix). */
 export interface TypeOverride {
   daily?: number // minutes per daily round
+  rounds?: number // daily rounds per day, for every activity level (0 = no daily cleaning)
   weekly?: number // minutes of the weekly clean
   weeklyTimes?: number
   monthly?: number // minutes of the monthly clean

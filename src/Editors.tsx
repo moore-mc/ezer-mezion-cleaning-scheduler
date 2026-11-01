@@ -725,7 +725,7 @@ function SiteDurationsCard({ data, setData, siteId }: { data: AppData; setData: 
       actions={count > 0 ? <Btn onClick={() => confirm('לבטל את כל העקיפות של הסניף ולחזור לערכי המטריצה?') && setOv({})}>אפס עקיפות</Btn> : undefined}>
       <p className="muted">
         ערכי המטריצה הם ברירת מחדל לכל הסניפים. כאן אפשר לעקוף אותם <b>לסניף הזה בלבד</b>, לכל סוג חלל: משך הניקיון היומי, השבועי והחודשי והתדירויות שלהם.
-        שדה ריק = לפי המטריצה (הערך מוצג בבהיר). משך שהוגדר בכרטיס של חלל בודד גובר על כל השאר.
+        שדה ריק = לפי המטריצה (הערך מוצג בבהיר). "סבבים ביום" ריק = לפי רמת הפעילות של כל חלל; מספר כאן קובע את אותו מספר סבבים לכל החללים מהסוג. משך שהוגדר בכרטיס של חלל בודד גובר על כל השאר.
       </p>
       <div className="row wrap" style={{ marginBottom: 8 }}>
         <label>קנה מידה לכל משכי הניקיון בסניף
@@ -734,7 +734,7 @@ function SiteDurationsCard({ data, setData, siteId }: { data: AppData; setData: 
       </div>
       <div className="table-wrap">
         <table className="matrix compact">
-          <thead><tr><th>סוג חלל</th><th>יומי (דק׳ לסבב)</th><th>שבועי (דק׳)</th><th>פעמים בשבוע</th><th>חודשי (דק׳)</th><th>כל כמה זמן (חודשי)</th><th /></tr></thead>
+          <thead><tr><th>סוג חלל</th><th>יומי (דק׳ לסבב)</th><th>סבבים ביום</th><th>שבועי (דק׳)</th><th>פעמים בשבוע</th><th>חודשי (דק׳)</th><th>כל כמה זמן (חודשי)</th><th /></tr></thead>
           <tbody>
             {types.map((t) => {
               const o = byType[t.id] ?? {}
@@ -743,6 +743,7 @@ function SiteDurationsCard({ data, setData, siteId }: { data: AppData; setData: 
                 <tr key={t.id} className={has ? 'hl' : ''}>
                   <td><b>{t.name}</b></td>
                   <td><OptNum value={o.daily} placeholder={levelOf(t).minutes} onChange={(v) => patchType(t.id, { daily: v })} /></td>
+                  <td><OptNum value={o.rounds} placeholder={undefined} max={12} onChange={(v) => patchType(t.id, { rounds: v })} /></td>
                   <td><OptNum value={o.weekly} placeholder={t.weeklyMin} onChange={(v) => patchType(t.id, { weekly: v })} /></td>
                   <td><OptNum value={o.weeklyTimes} placeholder={t.weeklyTimes ?? 1} min={1} max={7} onChange={(v) => patchType(t.id, { weeklyTimes: v })} /></td>
                   <td><OptNum value={o.monthly} placeholder={t.monthlyMin} onChange={(v) => patchType(t.id, { monthly: v })} /></td>

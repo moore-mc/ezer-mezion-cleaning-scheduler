@@ -57,7 +57,7 @@ function cellOf(data: AppData, space: Space) {
   const scale = (m: number) => (m > 0 ? Math.max(1, Math.round(m * pct)) : 0)
   return {
     minutes: space.minutesOverride ?? scale(o?.daily ?? base.minutes), // a space's own value is not scaled
-    rounds: space.roundsOverride ?? base.roundsPerDay,
+    rounds: space.roundsOverride ?? o?.rounds ?? base.roundsPerDay,
     weeklyMin: scale(o?.weekly ?? type?.weeklyMin ?? 0),
     monthlyMin: scale(o?.monthly ?? type?.monthlyMin ?? 0),
     weeklyTimes: Math.max(1, o?.weeklyTimes ?? type?.weeklyTimes ?? 1),
