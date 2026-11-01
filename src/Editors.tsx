@@ -334,7 +334,7 @@ export function WorkersView({ data, setData, siteId }: { data: AppData; setData:
                   })
                   const setExtra = (v: { start: number; end: number } | null) => patch(w.id, { extra: Array.from({ length: 7 }, (_, i) => (i === d ? v : w.extra?.[i] ?? null)) })
                   const total = (s1 ? s1.end - s1.start : 0) + (s2 ? s2.end - s2.start : 0)
-                  const over = total > data.settings.maxDailyHours * 60
+                  const over = !data.settings.ignoreOvertime && total > data.settings.maxDailyHours * 60
                   return (
                     <tr key={d} className={s1 ? '' : 'off'}>
                       <th>{n}</th>
@@ -392,6 +392,7 @@ export function SettingsView({ data, setData, reset, siteId }: { data: AppData; 
         <div className="row wrap">
           <label>מקסימום שעות ביום (לפני שעות נוספות)<NumInput value={st.maxDailyHours} min={1} max={16} onChange={(v) => set({ maxDailyHours: v })} suffix="שעות" /></label>
           <label>מקסימום שעות בשבוע<NumInput value={st.maxWeeklyHours} min={1} max={80} onChange={(v) => set({ maxWeeklyHours: v })} suffix="שעות" /></label>
+          <label className="inline" style={{ alignSelf: 'center' }}><input type="checkbox" checked={!!st.ignoreOvertime} onChange={(e) => set({ ignoreOvertime: e.target.checked })} /> התעלם מהגבלת שעות נוספות (ללא התראות וללא הגבלה בשיבוץ)</label>
           <small className="muted">חריגה מהמקסימום מסומנת כהתראה בלוח. המערכת נמנעת מחריגה כשאפשר, אבל לא אוסרת אותה. ברירת מחדל: 8 שעות ביום ו-42 בשבוע; כדאי לאמת מול הסכם ההעסקה.</small>
         </div>
         <div className="row wrap">

@@ -104,7 +104,9 @@ export default function App() {
                 <div className="kpi"><b>{pct(placed, total)}%</b><span>שובצו ({placed}/{total})</span></div>
                 <div className={`kpi ${result.unscheduled.length ? 'bad' : ''}`}><b>{result.unscheduled.length}</b><span>ללא שיבוץ</span></div>
                 <div className={`kpi ${warns ? 'warn' : ''}`}><b>{warns}</b><span>אזהרות עקיפה</span></div>
-                <div className={`kpi ${overtime ? 'bad' : ''}`}><b>{overtime}</b><span>התראות שעות נוספות</span></div>
+                {data.settings.ignoreOvertime
+                  ? <div className="kpi"><b>—</b><span>הגבלת שעות נוספות כבויה</span></div>
+                  : <div className={`kpi ${overtime ? 'bad' : ''}`}><b>{overtime}</b><span>התראות שעות נוספות</span></div>}
                 <div className="kpi"><b>{(minutes / 60).toFixed(1)}</b><span>שעות ניקיון</span></div>
               </div>
             </div>

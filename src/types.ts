@@ -157,6 +157,8 @@ export interface Settings {
   /** Presence beyond this many hours a day / week triggers an overtime warning (standard Israeli day = 8h, week = 42h). */
   maxDailyHours: number
   maxWeeklyHours: number
+  /** Do not limit / warn about overtime at all. */
+  ignoreOvertime?: boolean
   workDays: number[]
   /** Dates with no work at all (holidays, election days). */
   closedDates: string[]

@@ -348,6 +348,7 @@ export function hoursReport(result: ScheduleResult, data: AppData) {
     const days = Array.from({ length: 7 }, (_, d) => presenceMin(mine.filter((p) => Math.floor(p.start / DAY) === d).map((p) => [p.start, p.end])))
     const week = days.reduce((a, b) => a + b, 0)
     byWorker[w.id] = { days, week }
+    if (data.settings.ignoreOvertime) continue // the user chose to ignore the hours limit
     days.forEach((m, d) => { if (m > dayLimit) alerts.push({ workerId: w.id, day: d, minutes: m, limit: dayLimit }) })
     if (week > weekLimit) alerts.push({ workerId: w.id, day: null, minutes: week, limit: weekLimit })
   }
@@ -425,7 +426,7 @@ export function schedule(data: AppData, weekStart: string, opts: { pack?: boolea
       const dayIv = st.busy.filter((b) => Math.floor(b[0] / DAY) === dIdx)
       const dayAfter = presenceMin([...dayIv, [t, t + job.duration]])
       const weekAfter = st.pres.reduce((a, b) => a + b, 0) - st.pres[dIdx] + dayAfter
-      const over = (dayAfter > data.settings.maxDailyHours * 60 ? (opts.pack ? 1e7 : 2000) : 0) +
+      const over = data.settings.ignoreOvertime ? 0 : (dayAfter > data.settings.maxDailyHours * 60 ? (opts.pack ? 1e7 : 2000) : 0) +
         (weekAfter > data.settings.maxWeeklyHours * 60 ? (opts.pack ? 5e6 : 1000) : 0)
       const cost = opts.pack
         ? states.indexOf(st) * 1e6 + t + over
