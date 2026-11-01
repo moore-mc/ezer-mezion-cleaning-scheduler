@@ -89,7 +89,7 @@ const spaces: Space[] = FILE_SITES.flatMap((site) =>
   site.rows.flatMap((row) =>
     row.codes.map((code): Space => ({
       id: `${site.id}-${code}`, siteId: site.id, name: `${row.type} ${code}`,
-      typeId: slug(row.type), level: site.id === 'bb' || site.id === 'rg' ? 1 : row.level, // בני ברק ורמת גן: אין קבלת קהל – כל החללים ברמה 1
+      typeId: slug(row.type), level: 1, // בכל הסניפים אין קבלת קהל – כל החללים ברמה 1
       blocked: [], activities: [], events: [],
     }))))
 
@@ -113,9 +113,7 @@ sites[0].rules = [
 // בני ברק: משרדים – 10 דקות ביום (עקיפת המטריצה ברמת הסניף)
 sites[0].overrides = { byType: { [slug('משרד')]: { daily: 10 } } }
 // פתח תקווה – שושנים 12
-// הנחה: קבלת קהל והשאלת ציוד פתוחים א׳–ה׳ 09:00–13:00 / 09:00–14:00; המועדונית והחצר פעילות אחה״צ 15:00–18:00.
-block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')
-block(['pt-M1'], SUN_THU, h(9), h(14), 'שעות השאלת ציוד')
+// אין קבלת קהל (כל החללים ברמה 1, בלי חסימות קבלת קהל / השאלת ציוד). המועדונית והחצר פעילות אחה״צ 15:00–18:00.
 block(['pt-K1'], SUN_THU, h(15), h(18), 'פעילות מועדונית בחצר')
 block(['pt-G1', 'pt-G2', 'pt-G3'], [1, 3], h(10), h(11), 'ישיבת צוות')
 activity(['pt-F1', 'pt-F2'], [1, 3], h(17), h(20), 'חוג / הרצאת ערב', 120)
