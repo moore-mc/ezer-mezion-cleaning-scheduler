@@ -527,10 +527,26 @@ function SiteHoursCard({ data, setData, siteId }: { data: AppData; setData: SetD
 }
 
 function SiteTotals({ data, siteId }: { data: AppData; siteId: string }) {
-  const rows = data.spaces.filter((x) => x.siteId === siteId).map((sp) => spaceMinutes(data, sp))
+  const spaces = data.spaces.filter((x) => x.siteId === siteId)
+  const rows = spaces.map((sp) => spaceMinutes(data, sp))
   const sum = (k: 'daily' | 'weekly' | 'monthly' | 'avgPerDay' | 'perWeek' | 'per4Weeks') => rows.reduce((a, r) => a + r[k], 0)
   const days = Math.max(1, data.settings.workDays.length)
   const h = (m: number) => (m / 60).toFixed(1)
+  // breakdown by space type
+  const byType = [...new Set(spaces.map((x) => x.typeId))].map((tid) => {
+    const mine = spaces.filter((x) => x.typeId === tid)
+    const ms = mine.map((sp) => spaceMinutes(data, sp))
+    return {
+      type: data.types.find((t) => t.id === tid)?.name ?? '',
+      n: mine.length,
+      daily: ms.reduce((a, m) => a + m.daily * (m.times / days), 0), // minutes per working day, all spaces of the type
+      rounds: [...new Set(ms.map((m) => m.rounds))].sort().join('/'),
+      perRound: [...new Set(ms.map((m) => m.minutes))].join('/'),
+      weekly: ms.reduce((a, m) => a + m.weekly, 0),
+      monthly: ms.reduce((a, m) => a + m.monthly, 0),
+      avg: ms.reduce((a, m) => a + m.avgPerDay, 0),
+    }
+  })
   return (
     <Card title="סכום שעות ניקיון בסניף">
       <div className="kpis wide">
@@ -540,8 +556,29 @@ function SiteTotals({ data, siteId }: { data: AppData; siteId: string }) {
       </div>
       <p className="muted">
         הממוצע היומי = ניקיון יומי ({h(sum('daily'))} ש׳) + הניקיון השבועי מחולק ל-{days} ימי עבודה ({h(sum('weekly') / days)} ש׳) + הניקיון החודשי מחולק ל-4 שבועות ו-{days} ימים ({h(sum('monthly') / (4 * days))} ש׳).
+        <b> הניקיון היומי של כל חלל = דקות לסבב × מספר הסבבים ביום</b> (חלל ברמה 3 מנוקה כמה פעמים ביום), ולכן הסכום גדול ממה שנראה בעמודת "דקות לסבב".
         החישוב לפי המטריצה, כולל עקיפות בכל חלל; ניקיון שנתי לא נכלל.
       </p>
+      <details className="tasks">
+        <summary>פירוט לפי סוג חלל</summary>
+        <div className="table-wrap">
+          <table className="matrix compact">
+            <thead><tr><th>סוג חלל</th><th>חללים</th><th>דק׳ לסבב</th><th>סבבים ביום</th><th>דק׳ ביום (כל החללים)</th><th>שבועי (דק׳ בשבוע)</th><th>חודשי (דק׳ ב-4 שבועות)</th><th>ש׳ ליום (ממוצע)</th></tr></thead>
+            <tbody>
+              {byType.map((t) => (
+                <tr key={t.type}>
+                  <td><b>{t.type}</b></td><td>{t.n}</td><td>{t.perRound}</td><td>{t.rounds}</td>
+                  <td>{Math.round(t.daily)}</td><td>{Math.round(t.weekly)}</td><td>{Math.round(t.monthly)}</td><td><b>{(t.avg / 60).toFixed(2)}</b></td>
+                </tr>
+              ))}
+              <tr className="hl">
+                <td><b>סה״כ</b></td><td>{spaces.length}</td><td /><td />
+                <td><b>{Math.round(byType.reduce((a, t) => a + t.daily, 0))}</b></td><td><b>{Math.round(sum('weekly'))}</b></td><td><b>{Math.round(sum('monthly'))}</b></td><td><b>{h(sum('avgPerDay'))}</b></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
     </Card>
   )
 }

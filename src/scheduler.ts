@@ -86,7 +86,7 @@ export function spaceMinutes(data: AppData, space: Space) {
   const weekly = c.weeklyMin * Math.min(c.weeklyTimes, days) // per week
   const monthly = c.monthlyMin * (4 / c.monthlyEvery) // average per 4 weeks
   return {
-    daily, weekly, monthly, times,
+    daily, weekly, monthly, times, rounds: c.rounds, minutes: c.minutes,
     /** average per working day, with weekly / monthly lists spread over the days they cover */
     avgPerDay: (daily * times) / days + weekly / days + monthly / (4 * days),
     perWeek: daily * times + weekly + monthly / 4,
