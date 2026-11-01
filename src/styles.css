@@ -294,3 +294,11 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 .mx select.inp { min-width: 150px; }
 
 .inp.opt { width: 80px; } .inp.opt::placeholder { color: var(--muted); opacity: .8; }
+
+.avail { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.avail th, .avail td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: start; vertical-align: middle; }
+.avail thead th { color: var(--muted); font-weight: 500; font-size: 13px; }
+.avail tbody th { font-weight: 600; width: 70px; }
+.avail tr.off td, .avail tr.off th { opacity: .6; }
+.avail .win { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; } .avail .win i { color: var(--muted); font-style: normal; }
+.avail .inp.time { width: 112px; }

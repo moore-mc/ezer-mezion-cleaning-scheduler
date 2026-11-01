@@ -316,23 +316,51 @@ export function WorkersView({ data, setData, siteId }: { data: AppData; setData:
             <input className="inp name" value={w.name} onChange={(e) => patch(w.id, { name: e.target.value })} />
             <Btn kind="danger" onClick={() => confirm(`למחוק את ${w.name}?`) && setData((d) => ({ ...d, workers: d.workers.filter((x) => x.id !== w.id) }))}>מחק</Btn>
           </div>
-          <div className="shifts">
-            <p className="muted" style={{ gridColumn: '1 / -1' }}>זמינות העובד: המערכת משתמשת בשעות האלה לפי הצורך ולא חייבת למלא אותן. אפשר להוסיף חלון שני ביום (למשל בוקר + ערב). {w.shifts.some((sh) => sh && sh.end - sh.start > data.settings.maxDailyHours * 60) ? `⚠ יש ימים עם חלון ארוך מ-${data.settings.maxDailyHours} שעות – המערכת תשבץ עד ${data.settings.maxDailyHours} שעות ביום ותתריע אם חורגת.` : ''}</p>
-            {DAY_NAMES.map((n, d) => {
-              const s = w.shifts[d]
-              const setShift = (v: { start: number; end: number } | null) => patch(w.id, { shifts: w.shifts.map((x, i) => i === d ? v : x), ...(v === null ? { extra: (w.extra ?? []).map((x, i) => i === d ? null : x) } : {}) })
-              const setExtra = (v: { start: number; end: number } | null) => patch(w.id, { extra: Array.from({ length: 7 }, (_, i) => (i === d ? v : w.extra?.[i] ?? null)) })
-              return (
-                <div className={`shift-row ${s ? '' : 'off'}`} key={d}>
-                  <label className="inline"><input type="checkbox" checked={!!s} onChange={(e) => setShift(e.target.checked ? { start: 7 * 60, end: 15 * 60 } : null)} /> {n}</label>
-                  {s ? <><TimeInput value={s.start} onChange={(v) => setShift({ ...s, start: v })} /><span>–</span><TimeInput value={s.end} onChange={(v) => setShift({ ...s, end: v })} />
-                    {w.extra?.[d]
-                      ? <><span>+</span><TimeInput value={w.extra[d]!.start} onChange={(v) => setExtra({ ...w.extra![d]!, start: v })} /><span>–</span><TimeInput value={w.extra[d]!.end} onChange={(v) => setExtra({ ...w.extra![d]!, end: v })} /><button className="x" title="הסר חלון נוסף" onClick={() => setExtra(null)}>×</button></>
-                      : <button className="chipbtn" onClick={() => setExtra({ start: 16 * 60 + 30, end: 22 * 60 })}>+ חלון נוסף</button>}
-                  </> : <span className="muted">לא זמין</span>}
-                </div>
-              )
-            })}
+          <p className="muted">
+            <b>זמינות</b> = השעות שבהן העובד יכול לעבוד. המערכת משתמשת בהן לפי הצורך, ולא חייבת למלא אותן. אפשר להגדיר <b>חלון אחד</b> ביום, או <b>שני חלונות</b> (למשל בוקר וערב).
+          </p>
+          <div className="table-wrap">
+            <table className="avail">
+              <thead>
+                <tr><th>יום</th><th>זמין?</th><th>חלון ראשון</th><th>חלון שני (לא חובה)</th><th>סה״כ ביום</th></tr>
+              </thead>
+              <tbody>
+                {DAY_NAMES.map((n, d) => {
+                  const s1 = w.shifts[d]
+                  const s2 = w.extra?.[d] ?? null
+                  const setShift = (v: { start: number; end: number } | null) => patch(w.id, {
+                    shifts: w.shifts.map((x, i) => i === d ? v : x),
+                    ...(v === null ? { extra: Array.from({ length: 7 }, (_, i) => (i === d ? null : w.extra?.[i] ?? null)) } : {}),
+                  })
+                  const setExtra = (v: { start: number; end: number } | null) => patch(w.id, { extra: Array.from({ length: 7 }, (_, i) => (i === d ? v : w.extra?.[i] ?? null)) })
+                  const total = (s1 ? s1.end - s1.start : 0) + (s2 ? s2.end - s2.start : 0)
+                  const over = total > data.settings.maxDailyHours * 60
+                  return (
+                    <tr key={d} className={s1 ? '' : 'off'}>
+                      <th>{n}</th>
+                      <td><input type="checkbox" aria-label={`זמין ביום ${n}`} checked={!!s1} onChange={(e) => setShift(e.target.checked ? { start: 7 * 60, end: 15 * 60 } : null)} /></td>
+                      <td>{s1 ? <span className="win"><TimeInput value={s1.start} onChange={(v) => setShift({ ...s1, start: v })} /><i>עד</i><TimeInput value={s1.end} onChange={(v) => setShift({ ...s1, end: v })} /></span> : <span className="muted">לא זמין</span>}</td>
+                      <td>
+                        {s1 && (s2
+                          ? <span className="win"><TimeInput value={s2.start} onChange={(v) => setExtra({ ...s2, start: v })} /><i>עד</i><TimeInput value={s2.end} onChange={(v) => setExtra({ ...s2, end: v })} /><button className="x" title="הסר חלון שני" onClick={() => setExtra(null)}>×</button></span>
+                          : <button className="chipbtn" onClick={() => setExtra({ start: Math.min(s1.end + 120, 20 * 60), end: Math.min(s1.end + 120 + 180, 23 * 60) })}>+ הוסף חלון שני</button>)}
+                      </td>
+                      <td className={over ? 'bad' : 'muted'}>{s1 ? `${(total / 60).toFixed(1)} ש׳${over ? ' ⚠' : ''}` : ''}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="row wrap">
+            <Btn onClick={() => {
+              const first = w.shifts.findIndex((x) => x)
+              if (first < 0) return
+              patch(w.id, {
+                shifts: w.shifts.map((x, i) => (i <= 4 ? w.shifts[first] : x)),
+                extra: Array.from({ length: 7 }, (_, i) => (i <= 4 ? w.extra?.[first] ?? null : w.extra?.[i] ?? null)),
+              })
+            }}>העתק את היום הראשון לכל ימי ראשון–חמישי</Btn>
           </div>
           <div className="row wrap">
             <b>היעדרויות (לא זמין בתאריכים):</b>
