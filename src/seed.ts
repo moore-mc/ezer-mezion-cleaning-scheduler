@@ -110,6 +110,8 @@ sites[0].rules = [
   { id: 'bb-r1', label: 'אין קבלת קהל – ניקיון רק עד 09:00 ומ-16:30', days: SUN_THU, start: h(9), end: h(16, 30), mode: 'except', spaceIds: BB_DAYCARE },
   { id: 'bb-r2', label: 'שעות פעילות המעון', days: SUN_THU, start: h(7, 30), end: h(16, 30), mode: 'only', spaceIds: BB_DAYCARE },
 ]
+// בני ברק: משרדים – 10 דקות ביום (עקיפת המטריצה ברמת הסניף)
+sites[0].overrides = { byType: { [slug('משרד')]: { daily: 10 } } }
 // פתח תקווה – שושנים 12
 // הנחה: קבלת קהל והשאלת ציוד פתוחים א׳–ה׳ 09:00–13:00 / 09:00–14:00; המועדונית והחצר פעילות אחה״צ 15:00–18:00.
 block(['pt-L1'], SUN_THU, h(9), h(13), 'קבלת קהל')

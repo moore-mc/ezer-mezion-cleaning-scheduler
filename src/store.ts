@@ -32,6 +32,15 @@ function load(): AppData {
           localStorage.setItem('ezer-m-bbworker1', '1')
         }
       } catch { /* ignore */ }
+      // one-off migration: Gutmacher offices take 10 minutes a day (site-level override of the matrix)
+      try {
+        if (!localStorage.getItem('ezer-m-bboffice1')) {
+          d.sites = d.sites.map((x) => x.id !== 'bb' ? x : {
+            ...x, overrides: { ...x.overrides, byType: { ...x.overrides?.byType, 't-משרד': { ...x.overrides?.byType?.['t-משרד'], daily: 10 } } },
+          })
+          localStorage.setItem('ezer-m-bboffice1', '1')
+        }
+      } catch { /* ignore */ }
       // keep user edits but refresh site names (fixes the earlier misspelling)
       return { ...d, sites: d.sites.map((x) => ({ ...x, name: seed.sites.find((y) => y.id === x.id)?.name ?? x.name })) }
     }
