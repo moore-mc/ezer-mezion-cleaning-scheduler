@@ -21,6 +21,18 @@ const GROUPS: { id: Group; title: string; hint: string }[] = [
 const groupOf = (jobId: string, kind: string): Group =>
   jobId.startsWith('w|') ? 'weekly' : jobId.startsWith('mo|') ? 'monthly' : kind === 'activity' ? 'activity' : kind === 'event' ? 'event' : kind === 'manual' ? 'manual' : 'daily'
 
+/** Working hours for display: stints rounded outwards to whole half-hours (06:00–09:00 instead of 06:03–08:55). */
+const roundedStints = (iv: [number, number][]): [number, number][] => {
+  const r = stintsOf(iv).map(([a, b]) => [Math.floor(a / 30) * 30, Math.ceil(b / 30) * 30] as [number, number])
+  const out: [number, number][] = []
+  for (const x of r) {
+    const last = out[out.length - 1]
+    if (last && x[0] <= last[1]) last[1] = Math.max(last[1], x[1])
+    else out.push([...x])
+  }
+  return out
+}
+
 const KIND_LABEL = { routine: 'שוטף', activity: 'אחרי פעילות', event: 'אירוע מיוחד', manual: 'ידני' }
 
 interface Props {
@@ -78,7 +90,7 @@ export default function ScheduleView({ siteId, data, weekStart, result, setOverr
                 <b><i style={{ background: w.color }} />{w.name}</b>
                 <small>{absent ? 'נעדר' : `${spacesCount} חללים`}</small>
                 {!absent && list.length > 0 && (
-                  <small className="whours">שעות עבודה: {stintsOf(list.map((p) => [p.start - day * DAY, p.end - day * DAY])).map(([a, b], i) => <span key={i} className="ltr">{i > 0 && ' · '}{fmt(a)}–{fmt(b)}</span>)}</small>
+                  <small className="whours">שעות עבודה: {roundedStints(list.map((p) => [p.start - day * DAY, p.end - day * DAY])).map(([a, b], i) => <span key={i} className="ltr">{i > 0 && ' · '}{fmt(a)}–{fmt(b)}</span>)}</small>
                 )}
                 {!absent && <strong className="sumh">{hh(total)} שעות ניקיון</strong>}
               </header>
