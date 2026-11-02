@@ -6,14 +6,12 @@ import { addDays, hoursReport, overrideKey, schedule, weekStartOf } from './sche
 import { useData } from './store'
 import ScheduleView from './ScheduleView'
 import PrintView from './PrintView'
-import StaffingView from './StaffingView'
 import { MatrixView, SettingsView, SpacesView, WorkersView } from './Editors'
 
 const TABS = [
-  { id: 'schedule', label: 'לוח שבועי' },
-  { id: 'staffing', label: 'כמה עובדים צריך' },
-  { id: 'spaces', label: 'חללים' },
-  { id: 'matrix', label: 'מטריצה' },
+  { id: 'schedule', label: 'תכנית עבודה' },
+  { id: 'spaces', label: 'חללים בסניף' },
+  { id: 'matrix', label: 'מטריצת חללים כללית' },
   { id: 'workers', label: 'עובדים' },
   { id: 'settings', label: 'הגדרות' },
 ] as const
@@ -112,18 +110,6 @@ export default function App() {
             </div>
             <PrintView data={siteData} siteName={data.sites.find((x) => x.id === siteId)?.name ?? ''} weekStart={weekStart} result={result} />
             <ScheduleView siteId={siteId} data={siteData} weekStart={weekStart} result={result} setOverride={setOverride} applyPlan={applyPlan} />
-          </>
-        )}
-        {tab === 'staffing' && (
-          <>
-            <div className="weekbar">
-              <div className="weeknav">
-                <button onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="שבוע קודם">‹</button>
-                <b>שבוע {fmtD(weekStart)} – {fmtD(end)}</b>
-                <button onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="שבוע הבא">›</button>
-              </div>
-            </div>
-            <StaffingView data={siteData} weekStart={weekStart} siteName={data.sites.find((x) => x.id === siteId)?.name ?? ''} />
           </>
         )}
         {tab === 'spaces' && <SpacesView data={data} setData={setData} siteId={siteId} />}

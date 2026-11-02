@@ -352,8 +352,17 @@ function SpacePanel({ data, spaceId, group, onClose, onEdit }: {
       {list && list.length > 0 ? (
         <ul className="checklist">{list.map((t) => <li key={t}>{t}</li>)}</ul>
       ) : (
-        <p className="muted">לא הוגדרה רשימת משימות לסוג החלל הזה (ניתן להגדיר בלשונית "מטריצה").</p>
+        <p className="muted">לא הוגדרה רשימת משימות לסוג החלל הזה (ניתן להגדיר בלשונית "מטריצת חללים כללית").</p>
       )}
+      {(() => {
+        const extra = space?.extraTasks?.[group === 'weekly' ? 'weekly' : group === 'monthly' ? 'monthly' : 'daily']?.tasks ?? []
+        return extra.length > 0 ? (
+          <>
+            <h4>משימות נוספות לחלל הזה</h4>
+            <ul className="checklist">{extra.map((t) => <li key={t}>{t}</li>)}</ul>
+          </>
+        ) : null
+      })()}
       <Btn onClick={onEdit}>עריכת השיבוץ (הזזה / דילוג)</Btn>
     </aside>
   )

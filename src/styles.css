@@ -305,3 +305,14 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 
 .col header .whours { color: var(--ink); font-weight: 500; margin: 2px 0; }
 .col header .whours .ltr { margin-inline-end: 4px; }
+
+.sitetbl .typerow td { background: color-mix(in srgb, var(--brand) 5%, var(--surface)); border-bottom: 1px solid var(--line); }
+.sitetbl .typerow.hl td { background: var(--brand-soft); }
+.sitetbl .sprow td { background: var(--surface); } .sitetbl .sprow.hl td { background: var(--brand-soft); }
+.sitetbl td.indent { padding-inline-start: 34px; }
+.chev2 { border: 0; background: transparent; color: var(--muted); font-size: 12px; width: 24px; }
+.tasklists { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; } @media (max-width: 800px) { .tasklists { grid-template-columns: 1fr; } }
+.tasklists .checklist { margin: 4px 0; }
+
+.extragrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; } @media (max-width: 800px) { .extragrid { grid-template-columns: 1fr; } }
+.extra { display: grid; gap: 6px; align-content: start; } .extra textarea { width: 100%; font: inherit; }

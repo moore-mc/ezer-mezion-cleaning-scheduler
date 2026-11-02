@@ -104,7 +104,7 @@ const activity = (ids: string[], days: number[], start: number, end: number, lab
 const thisWeekDay = (d: number) => addDays(weekStartOf(toISO(new Date())), d)
 
 // בני ברק – גוטמאכר: אין קבלת קהל, לכן מנקים רק בבוקר עד 09:00 ומ-16:30 (שישי פתוח כל היום).
-// המעון (גנים, חצר, ג׳ימבורי) – רק עד 07:30 ומ-16:30. אילוצי שעות ברמת הסניף (לשונית "חללים"), בלי פעילויות ואירועים.
+// המעון (גנים, חצר, ג׳ימבורי) – רק עד 07:30 ומ-16:30. אילוצי שעות ברמת הסניף (לשונית "חללים בסניף"), בלי פעילויות ואירועים.
 const BB_DAYCARE = ['bb-H1', 'bb-H2', 'bb-K1', 'bb-K2', 'bb-K3', 'bb-K4', 'bb-L1']
 sites[0].rules = [
   { id: 'bb-r1', label: 'אין קבלת קהל – ניקיון רק עד 09:00 ומ-16:30', days: SUN_THU, start: h(9), end: h(16, 30), mode: 'except', spaceIds: BB_DAYCARE },

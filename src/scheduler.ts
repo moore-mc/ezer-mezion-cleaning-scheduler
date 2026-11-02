@@ -56,10 +56,10 @@ function cellOf(data: AppData, space: Space) {
   const pct = (site?.overrides?.scalePct ?? 100) / 100
   const scale = (m: number) => (m > 0 ? Math.max(1, Math.round(m * pct)) : 0)
   return {
-    minutes: space.minutesOverride ?? scale(o?.daily ?? base.minutes), // a space's own value is not scaled
+    minutes: (space.minutesOverride ?? scale(o?.daily ?? base.minutes)) + (space.extraTasks?.daily?.minutes ?? 0), // a space's own value is not scaled; extra tasks add minutes
     rounds: space.roundsOverride ?? o?.rounds ?? base.roundsPerDay,
-    weeklyMin: scale(o?.weekly ?? type?.weeklyMin ?? 0),
-    monthlyMin: scale(o?.monthly ?? type?.monthlyMin ?? 0),
+    weeklyMin: scale(o?.weekly ?? type?.weeklyMin ?? 0) + (space.extraTasks?.weekly?.minutes ?? 0),
+    monthlyMin: scale(o?.monthly ?? type?.monthlyMin ?? 0) + (space.extraTasks?.monthly?.minutes ?? 0),
     weeklyTimes: Math.max(1, o?.weeklyTimes ?? type?.weeklyTimes ?? 1),
     monthlyEvery: Math.max(1, Math.round(o?.monthlyEveryWeeks ?? type?.monthlyEveryWeeks ?? 4)),
   }

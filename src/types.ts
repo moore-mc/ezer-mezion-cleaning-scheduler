@@ -100,6 +100,12 @@ export interface Site {
   overrides?: { scalePct?: number; byType?: Record<string, TypeOverride> }
 }
 
+/** Extra tasks of one specific space (only in its site): the tasks and the extra minutes they add to that cleaning. */
+export interface ExtraTasks {
+  tasks: string[]
+  minutes: number
+}
+
 export interface Space {
   id: string
   siteId: string
@@ -113,6 +119,8 @@ export interface Space {
   timesPerWeek?: number
   /** Preferred part of the day for once-a-day / weekly cleans: before 12:00 or after 12:00. */
   slot?: 'morning' | 'evening'
+  /** Tasks added to this space only (on top of its type's lists), per frequency. */
+  extraTasks?: Partial<Record<'daily' | 'weekly' | 'monthly', ExtraTasks>>
   /** Recurring weekly windows in which cleaning is impossible. */
   blocked: TimeWindow[]
   activities: Activity[]

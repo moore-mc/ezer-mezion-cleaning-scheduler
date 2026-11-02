@@ -46,7 +46,7 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
       tasks: { daily: [], weekly: [], monthly: [], yearly: [], ...t.tasks, [k]: text.split('\n').map((x) => x.trim()).filter(Boolean) },
     }))
   return (
-    <Card title="מטריצת ניקיון – סוגי חללים"
+    <Card title="מטריצת חללים כללית – סוגי חללים"
       actions={<div className="row wrap">
         {dirty ? <small className="bad">יש שינויים שלא נשמרו</small> : savedAt ? <small className="ok-note">✓ נשמר</small> : null}
         {dirty && <Btn onClick={() => setDraft(data.types)}>בטל שינויים</Btn>}
@@ -141,7 +141,7 @@ export function MatrixView({ data, setData }: { data: AppData; setData: SetData 
 
 export function SpacesView({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
   const spaces = data.spaces.filter((s) => s.siteId === siteId)
-  const [open, setOpen] = useState<string | null>(spaces[0]?.id ?? null)
+  const [open, setOpen] = useState<string | null>(null)
   const patch = (id: string, p: Partial<Space>) => setData((d) => ({ ...d, spaces: d.spaces.map((s) => s.id === id ? { ...s, ...p } : s) }))
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState<{ name: string; typeId: string; level: Level }>({ name: '', typeId: data.types[0]?.id ?? '', level: 2 })
@@ -176,8 +176,7 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
       <SiteHoursCard data={data} setData={setData} siteId={siteId} />
       <SiteRulesCard data={data} setData={setData} siteId={siteId} />
       <FreqRulesCard data={data} setData={setData} siteId={siteId} />
-      <SiteDurationsCard data={data} setData={setData} siteId={siteId} />
-      <SpaceTable data={data} spaces={spaces} siteId={siteId} open={open}
+      <SpaceTable data={data} setData={setData} siteId={siteId} open={open}
         onLevel={(id, level) => patch(id, { level })}
         onOpen={(id) => {
           setOpen(open === id ? null : id)
@@ -270,6 +269,33 @@ export function SpacesView({ data, setData, siteId }: { data: AppData; setData: 
                 })}
                 <Btn onClick={() => patch(s.id, { events: [...s.events, { id: uid('e-'), date: new Date().toISOString().slice(0, 10), start: 18 * 60, end: 21 * 60, label: 'אירוע', cleanBefore: true, cleanAfterWithinMin: 600 }] })}>+ אירוע</Btn>
 
+                <h4>📋 משימות החלל</h4>
+                <details className="tasks" open>
+                  <summary>רשימת המשימות הרגילה של סוג החלל (לעריכה: לשונית "מטריצת חללים כללית")</summary>
+                  {TASK_KINDS.map(({ k, label }) => (data.types.find((t) => t.id === s.typeId)?.tasks?.[k]?.length ?? 0) > 0 && (
+                    <div key={k}><b>{label}:</b> {data.types.find((t) => t.id === s.typeId)!.tasks![k].join(' · ')}</div>
+                  ))}
+                </details>
+                <p className="muted">משימות נוספות <b>לחלל הזה בלבד</b> (בסניף הזה). שורה לכל משימה; הדקות מתווספות למשך הניקיון של אותה תדירות.</p>
+                <div className="extragrid">
+                  {TASK_KINDS.map(({ k, label }) => {
+                    const cur = s.extraTasks?.[k] ?? { tasks: [], minutes: 0 }
+                    const setExtra = (next: { tasks: string[]; minutes: number }) => {
+                      const all = { ...(s.extraTasks ?? {}), [k]: next }
+                      if (next.tasks.length === 0 && next.minutes === 0) delete all[k]
+                      patch(s.id, { extraTasks: Object.keys(all).length ? all : undefined })
+                    }
+                    return (
+                      <div key={k} className="extra">
+                        <label>{label} – משימות נוספות
+                          <textarea className="inp" rows={Math.max(3, cur.tasks.length + 1)} placeholder="משימה בכל שורה"
+                            value={cur.tasks.join('\n')} onChange={(e) => setExtra({ ...cur, tasks: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) })} />
+                        </label>
+                        <label>דקות נוספות<NumInput value={cur.minutes} onChange={(v) => setExtra({ ...cur, minutes: v })} suffix="דק׳" /></label>
+                      </div>
+                    )
+                  })}
+                </div>
                 <div className="row end">
                   <Btn kind="danger" onClick={() => confirm(`למחוק את "${s.name}"?`) && setData((d) => ({ ...d, spaces: d.spaces.filter((x) => x.id !== s.id) }))}>מחק חלל</Btn>
                 </div>
@@ -446,66 +472,134 @@ function ManualJobs({ data, setData, siteId }: { data: AppData; setData: SetData
   )
 }
 
-function SpaceTable({ data, siteId, open, onLevel, onOpen, renderDetail }: {
-  data: AppData; spaces: Space[]; siteId: string; open: string | null
+const TASK_KINDS = [
+  { k: 'daily', label: 'יומי' },
+  { k: 'weekly', label: 'שבועי' },
+  { k: 'monthly', label: 'חודשי' },
+] as const
+
+/** One table for the site: space types (with the site's overrides of the matrix) and, inside each type, its spaces. */
+function SpaceTable({ data, setData, siteId, open, onLevel, onOpen, renderDetail }: {
+  data: AppData; setData: SetData; siteId: string; open: string | null
   onLevel: (id: string, l: Level) => void; onOpen: (id: string) => void; renderDetail: (s: Space) => React.ReactNode
 }) {
-  const [all, setAll] = useState(false)
-  const groups = (all ? data.sites : data.sites.filter((x) => x.id === siteId))
-    .map((site) => ({ site, rows: data.spaces.filter((x) => x.siteId === site.id) }))
-  const sum = (rows: Space[]) => [1, 2, 3].map((l) => rows.filter((x) => x.level === l).length)
+  const site = data.sites.find((x) => x.id === siteId)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [lists, setLists] = useState<Set<string>>(new Set())
+  if (!site) return null
+  const spaces = data.spaces.filter((x) => x.siteId === siteId)
+  const types = [...new Set(spaces.map((x) => x.typeId))].map((id) => data.types.find((t) => t.id === id)).filter(Boolean) as SpaceType[]
+  const ov = site.overrides ?? {}
+  const byType = ov.byType ?? {}
+  const toggle = (set: Set<string>, id: string, upd: (s: Set<string>) => void) => { const n = new Set(set); if (n.has(id)) n.delete(id); else n.add(id); upd(n) }
+  const setOv = (next: NonNullable<typeof site.overrides>) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, overrides: next } : x) }))
+  const patchType = (typeId: string, p: Partial<TypeOverride>) => {
+    const merged = { ...(byType[typeId] ?? {}), ...p }
+    const clean = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined)) as TypeOverride
+    const next = { ...byType }
+    if (Object.keys(clean).length) next[typeId] = clean
+    else delete next[typeId]
+    setOv({ ...ov, byType: next })
+  }
+  const count = Object.keys(byType).length + (ov.scalePct && ov.scalePct !== 100 ? 1 : 0)
+  const days = Math.max(1, data.settings.workDays.length)
+  const COLS = 10
   return (
-    <Card title="רשימת חללים ורמת פעילות"
-      actions={<label className="inline"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> הצג את כל הסניפים</label>}>
-      {groups.map(({ site, rows }) => {
-        const [a, b, c] = sum(rows)
-        return (
-          <div key={site.id} className="site-group">
-            <h4>{site.name} <small className="muted">· {rows.length} חללים · רמה 1: {a} · רמה 2: {b} · רמה 3: {c}</small></h4>
-            <div className="table-wrap">
-              <table className="matrix compact">
-                <thead><tr><th>חלל</th><th>סוג חלל</th><th>רמת פעילות</th><th>ניקיון יומי</th><th>שבועי</th><th>חודשי</th><th>ש׳ ליום (ממוצע)</th><th>אילוצים</th><th /></tr></thead>
-                <tbody>
-                  {rows.map((sp) => {
-                    const type = data.types.find((t) => t.id === sp.typeId)
-                    const cell = type?.matrix[sp.level]
+    <Card title={`חללים בסניף – משכים, תדירויות ורשימות משימות (${spaces.length} חללים)`}
+      actions={<div className="row wrap">
+        <Btn onClick={() => setExpanded(expanded.size ? new Set() : new Set(types.map((t) => t.id)))}>{expanded.size ? 'כווץ הכל' : 'הרחב את כל החללים'}</Btn>
+        {count > 0 && <Btn onClick={() => confirm('לבטל את כל העקיפות של הסניף ולחזור לערכי המטריצה?') && setOv({})}>אפס עקיפות ({count})</Btn>}
+      </div>}>
+      <p className="muted">
+        שורת סוג החלל מציגה את משכי הניקיון והתדירויות של כל חללי הסוג <b>בסניף הזה</b>. שדה ריק = לפי המטריצה (בבהיר); מספר שתכתבי עוקף את המטריצה לסניף בלבד, ו-0 מבטל את אותו ניקיון.
+        לחצי על החץ כדי לראות את החללים עצמם (רמת פעילות, פרטים והוספת משימות לחלל ספציפי), ועל "רשימת משימות" כדי לראות מה מנקים.
+      </p>
+      <div className="row wrap" style={{ marginBottom: 8 }}>
+        <label>קנה מידה לכל משכי הניקיון בסניף
+          <span className="numwrap"><OptNum value={ov.scalePct} placeholder={100} min={10} max={300} onChange={(v) => setOv({ ...ov, scalePct: v })} /><span className="suffix">% (100 = ללא שינוי)</span></span>
+        </label>
+      </div>
+      <div className="table-wrap">
+        <table className="matrix compact sitetbl">
+          <thead>
+            <tr>
+              <th>סוג חלל / חלל</th><th>רשימת משימות / רמה</th><th>יומי (דק׳ לסבב)</th><th>סבבים ביום</th><th>שבועי (דק׳)</th><th>פעמים בשבוע</th><th>חודשי (דק׳)</th><th>כל כמה זמן (חודשי)</th><th>ש׳ ליום (ממוצע)</th><th />
+            </tr>
+          </thead>
+          <tbody>
+            {types.map((t) => {
+              const o = byType[t.id] ?? {}
+              const has = Object.keys(o).length > 0
+              const mine = spaces.filter((x) => x.typeId === t.id)
+              const isOpen = expanded.has(t.id)
+              const avg = mine.reduce((a, sp) => a + spaceMinutes(data, sp).avgPerDay, 0)
+              return (
+                <Fragment key={t.id}>
+                  <tr className={`typerow ${has ? 'hl' : ''}`}>
+                    <td>
+                      <button className="chev2" aria-label={isOpen ? 'כווץ' : 'הרחב'} onClick={() => toggle(expanded, t.id, setExpanded)}>{isOpen ? '▼' : '◀'}</button>
+                      <b>{t.name}</b> <small className="muted">({mine.length})</small>
+                    </td>
+                    <td><button className="chipbtn" onClick={() => toggle(lists, t.id, setLists)}>{lists.has(t.id) ? 'הסתר רשימה' : 'רשימת משימות'}</button></td>
+                    <td><OptNum value={o.daily} placeholder={t.matrix[1].minutes} onChange={(v) => patchType(t.id, { daily: v })} /></td>
+                    <td><OptNum value={o.rounds} placeholder={undefined} max={12} onChange={(v) => patchType(t.id, { rounds: v })} /></td>
+                    <td><OptNum value={o.weekly} placeholder={t.weeklyMin} onChange={(v) => patchType(t.id, { weekly: v })} /></td>
+                    <td><OptNum value={o.weeklyTimes} placeholder={t.weeklyTimes ?? 1} min={1} max={7} onChange={(v) => patchType(t.id, { weeklyTimes: v })} /></td>
+                    <td><OptNum value={o.monthly} placeholder={t.monthlyMin} onChange={(v) => patchType(t.id, { monthly: v })} /></td>
+                    <td>
+                      <select className="inp" value={o.monthlyEveryWeeks ?? ''} onChange={(e) => patchType(t.id, { monthlyEveryWeeks: e.target.value === '' ? undefined : Number(e.target.value) })}>
+                        <option value="">לפי המטריצה ({EVERY_PRESETS.find((p) => p.w === (t.monthlyEveryWeeks ?? 4))?.label ?? `כל ${t.monthlyEveryWeeks} שבועות`})</option>
+                        {EVERY_PRESETS.map((p) => <option key={p.w} value={p.w}>{p.label}</option>)}
+                      </select>
+                    </td>
+                    <td><b>{(avg / 60).toFixed(2)}</b></td>
+                    <td>{has && <Btn onClick={() => patchType(t.id, { daily: undefined, rounds: undefined, weekly: undefined, weeklyTimes: undefined, monthly: undefined, monthlyEveryWeeks: undefined })}>אפס</Btn>}</td>
+                  </tr>
+                  {lists.has(t.id) && (
+                    <tr className="detail"><td colSpan={COLS}>
+                      <div className="tasklists">
+                        {TASK_KINDS.map(({ k, label }) => (
+                          <div key={k}><b>{label}</b>
+                            {(t.tasks?.[k]?.length ?? 0) > 0 ? <ul className="checklist">{t.tasks![k].map((x) => <li key={x}>{x}</li>)}</ul> : <p className="muted">אין משימות</p>}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="muted">הרשימה הרגילה של סוג החלל (לעריכה: לשונית "מטריצת חללים כללית"). כדי להוסיף משימות לחלל ספציפי בסניף הזה – הרחיבי את הסוג ולחצי "פרטים" בשורת החלל.</p>
+                      {mine.filter((sp) => TASK_KINDS.some(({ k }) => (sp.extraTasks?.[k]?.tasks.length ?? 0) > 0)).map((sp) => (
+                        <p key={sp.id}><b>{sp.name}</b> – משימות נוספות: {TASK_KINDS.flatMap(({ k, label }) => (sp.extraTasks?.[k]?.tasks ?? []).map((x) => `${x} (${label})`)).join(' · ')}</p>
+                      ))}
+                    </td></tr>
+                  )}
+                  {isOpen && mine.map((sp) => {
+                    const m = spaceMinutes(data, sp)
+                    const hasExtra = TASK_KINDS.some(({ k }) => (sp.extraTasks?.[k]?.tasks.length ?? 0) > 0)
                     return (
                       <Fragment key={sp.id}>
-                      <tr className={open === sp.id ? 'hl' : ''}>
-                        <td><b>{sp.name}</b></td>
-                        <td>{type?.name}</td>
-                        <td>
-                          <select className={`inp lvlsel lvl${sp.level}`} value={sp.level} aria-label={`רמת פעילות – ${sp.name}`}
-                            onChange={(e) => onLevel(sp.id, Number(e.target.value) as Level)}>
-                            {LEVELS.map((l) => <option key={l} value={l}>רמה {l}</option>)}
-                          </select>
-                        </td>
-                        {(() => {
-                          const m = spaceMinutes(data, sp)
-                          const rounds = sp.roundsOverride ?? cell?.roundsPerDay ?? 0
-                          const mins = sp.minutesOverride ?? cell?.minutes ?? 0
-                          return (
-                            <>
-                              <td>{m.daily > 0 ? <>{mins} דק׳{rounds > 1 && ` × ${rounds}`}{m.times < data.settings.workDays.length && <small className="muted"> · {m.times} ימים בשבוע</small>}</> : <span className="muted">—</span>}</td>
-                              <td>{m.weekly > 0 ? `${m.weekly} דק׳` : <span className="muted">—</span>}</td>
-                              <td>{m.monthly > 0 ? `${m.monthly} דק׳` : <span className="muted">—</span>}</td>
-                            </>
-                          )
-                        })()}
-                        <td><b>{(spaceMinutes(data, sp).avgPerDay / 60).toFixed(2)}</b></td>
-                        <td className="muted">{sp.blocked.length + sp.activities.length + sp.events.length || '—'}</td>
-                        <td><Btn onClick={() => onOpen(sp.id)}>{open === sp.id ? 'סגור' : 'פרטים'}</Btn></td>
-                      </tr>
-                      {open === sp.id && <tr className="detail"><td colSpan={9}>{renderDetail(sp)}</td></tr>}
+                        <tr className={`sprow ${open === sp.id ? 'hl' : ''}`}>
+                          <td className="indent"><b>{sp.name}</b></td>
+                          <td>
+                            <select className={`inp lvlsel lvl${sp.level}`} value={sp.level} aria-label={`רמת פעילות – ${sp.name}`} onChange={(e) => onLevel(sp.id, Number(e.target.value) as Level)}>
+                              {LEVELS.map((l) => <option key={l} value={l}>רמה {l}</option>)}
+                            </select>
+                          </td>
+                          <td colSpan={6} className="muted">
+                            {m.daily > 0 ? <>יומי: {m.minutes} דק׳{m.rounds > 1 && ` × ${m.rounds}`}{m.times < days && ` · ${m.times} ימים בשבוע`}</> : 'יומי: —'}
+                            {' · '}שבועי: {m.weekly > 0 ? `${m.weekly} דק׳` : '—'}{' · '}חודשי: {m.monthly > 0 ? `${m.monthly} דק׳` : '—'}
+                            {hasExtra && <span className="chip">+ משימות נוספות</span>}
+                          </td>
+                          <td><b>{(m.avgPerDay / 60).toFixed(2)}</b></td>
+                          <td><Btn onClick={() => onOpen(sp.id)}>{open === sp.id ? 'סגור' : 'פרטים'}</Btn></td>
+                        </tr>
+                        {open === sp.id && <tr className="detail"><td colSpan={COLS}>{renderDetail(sp)}</td></tr>}
                       </Fragment>
                     )
                   })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )
-      })}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </Card>
   )
 }
@@ -702,64 +796,3 @@ function OptNum({ value, placeholder, onChange, min = 0, max }: { value?: number
   )
 }
 
-function SiteDurationsCard({ data, setData, siteId }: { data: AppData; setData: SetData; siteId: string }) {
-  const site = data.sites.find((x) => x.id === siteId)
-  if (!site) return null
-  const types = [...new Set(data.spaces.filter((x) => x.siteId === siteId).map((x) => x.typeId))]
-    .map((id) => data.types.find((t) => t.id === id)).filter(Boolean) as SpaceType[]
-  const ov = site.overrides ?? {}
-  const byType = ov.byType ?? {}
-  const setOv = (next: NonNullable<typeof site.overrides>) => setData((d) => ({ ...d, sites: d.sites.map((x) => x.id === siteId ? { ...x, overrides: next } : x) }))
-  const patchType = (typeId: string, p: Partial<TypeOverride>) => {
-    const merged = { ...(byType[typeId] ?? {}), ...p }
-    const clean = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined)) as TypeOverride
-    const next = { ...byType }
-    if (Object.keys(clean).length) next[typeId] = clean
-    else delete next[typeId]
-    setOv({ ...ov, byType: next })
-  }
-  const count = Object.keys(byType).length + (ov.scalePct && ov.scalePct !== 100 ? 1 : 0)
-  const levelOf = (t: SpaceType) => t.matrix[1]
-  return (
-    <Card title={`משכי ניקיון ותדירויות בסניף – עקיפת המטריצה${count ? ` (${count} עקיפות)` : ''}`}
-      actions={count > 0 ? <Btn onClick={() => confirm('לבטל את כל העקיפות של הסניף ולחזור לערכי המטריצה?') && setOv({})}>אפס עקיפות</Btn> : undefined}>
-      <p className="muted">
-        ערכי המטריצה הם ברירת מחדל לכל הסניפים. כאן אפשר לעקוף אותם <b>לסניף הזה בלבד</b>, לכל סוג חלל: משך הניקיון היומי, השבועי והחודשי והתדירויות שלהם.
-        שדה ריק = לפי המטריצה (הערך מוצג בבהיר). "סבבים ביום" ריק = לפי רמת הפעילות של כל חלל; מספר כאן קובע את אותו מספר סבבים לכל החללים מהסוג. משך שהוגדר בכרטיס של חלל בודד גובר על כל השאר.
-      </p>
-      <div className="row wrap" style={{ marginBottom: 8 }}>
-        <label>קנה מידה לכל משכי הניקיון בסניף
-          <span className="numwrap"><OptNum value={ov.scalePct} placeholder={100} min={10} max={300} onChange={(v) => setOv({ ...ov, scalePct: v })} /><span className="suffix">% (100 = ללא שינוי)</span></span>
-        </label>
-      </div>
-      <div className="table-wrap">
-        <table className="matrix compact">
-          <thead><tr><th>סוג חלל</th><th>יומי (דק׳ לסבב)</th><th>סבבים ביום</th><th>שבועי (דק׳)</th><th>פעמים בשבוע</th><th>חודשי (דק׳)</th><th>כל כמה זמן (חודשי)</th><th /></tr></thead>
-          <tbody>
-            {types.map((t) => {
-              const o = byType[t.id] ?? {}
-              const has = Object.keys(o).length > 0
-              return (
-                <tr key={t.id} className={has ? 'hl' : ''}>
-                  <td><b>{t.name}</b></td>
-                  <td><OptNum value={o.daily} placeholder={levelOf(t).minutes} onChange={(v) => patchType(t.id, { daily: v })} /></td>
-                  <td><OptNum value={o.rounds} placeholder={undefined} max={12} onChange={(v) => patchType(t.id, { rounds: v })} /></td>
-                  <td><OptNum value={o.weekly} placeholder={t.weeklyMin} onChange={(v) => patchType(t.id, { weekly: v })} /></td>
-                  <td><OptNum value={o.weeklyTimes} placeholder={t.weeklyTimes ?? 1} min={1} max={7} onChange={(v) => patchType(t.id, { weeklyTimes: v })} /></td>
-                  <td><OptNum value={o.monthly} placeholder={t.monthlyMin} onChange={(v) => patchType(t.id, { monthly: v })} /></td>
-                  <td>
-                    <select className="inp" value={o.monthlyEveryWeeks ?? ''} onChange={(e) => patchType(t.id, { monthlyEveryWeeks: e.target.value === '' ? undefined : Number(e.target.value) })}>
-                      <option value="">לפי המטריצה ({EVERY_PRESETS.find((p) => p.w === (t.monthlyEveryWeeks ?? 4))?.label ?? `כל ${t.monthlyEveryWeeks} שבועות`})</option>
-                      {EVERY_PRESETS.map((p) => <option key={p.w} value={p.w}>{p.label}</option>)}
-                    </select>
-                  </td>
-                  <td>{has && <Btn onClick={() => patchType(t.id, { daily: undefined, weekly: undefined, weeklyTimes: undefined, monthly: undefined, monthlyEveryWeeks: undefined })}>אפס</Btn>}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  )
-}
